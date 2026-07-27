@@ -81,10 +81,10 @@ function Row({ s, onToggle, onRemove, onEdit }) {
         <button
           onClick={() => onRemove(s.id)}
           aria-label="Remove subtask"
-          // Always visible — a hover-reveal (opacity-0 group-hover) meant the ×
-          // never appeared on touch, so subtasks couldn't be deleted on a phone.
-          // Extra padding gives a comfortable tap target at this small text size.
-          className="text-faint hover:text-fg transition-colors text-sm leading-none shrink-0 px-1.5 py-1 -mr-1"
+          // Reveal on hover, matching the row's other controls (Chris's pick).
+          // Note: hover doesn't exist on touch, so the × won't show on a phone —
+          // consistent with every other subtask, deliberately kept that way.
+          className="text-faint hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-xs shrink-0"
         >
           ×
         </button>
