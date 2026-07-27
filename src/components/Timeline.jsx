@@ -488,7 +488,11 @@ export default function Timeline({
               ? onToggleEventSubtask(metaOf(item), id)
               : onToggleSubtask(item.rawId, id)
           }
-          onRemove={item.kind === 'event' ? (id) => onRemoveEventSubtask(metaOf(item), id) : null}
+          onRemove={(id) =>
+            item.kind === 'event'
+              ? onRemoveEventSubtask(metaOf(item), id)
+              : onUpdateTask(item.rawId, { subtasks: item.subtasks.filter(s => s.id !== id) })
+          }
           onEdit={(id, title) => {
             const next = item.subtasks.map(s => (s.id === id ? { ...s, title } : s))
             item.kind === 'event'
