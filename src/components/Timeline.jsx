@@ -31,6 +31,19 @@ function hourMarksBetween(b, sY, eY) {
     .map(o => ({ y: o.y, label: formatMinShort(o.m) }))
 }
 
+// A gentle, capped minimum height for a block's outline box, so a long session
+// reads as a bigger chunk of the day than a short one — without the huge empty
+// gaps a fully time-proportional height would create. This is only a FLOOR:
+// subtasks and child rows can always make a box taller (content wins). Ramps from
+// 2h up to 8h, then stays flat, so a 14-hour outlier never dominates the screen.
+function boxFloorPx(durationMin) {
+  const START = 120, END = 480          // ramp across 2h → 8h
+  const LO = 110, HI = 260              // px floor at each end of the ramp
+  if (!durationMin || durationMin <= START) return 0
+  const t = Math.min(1, (durationMin - START) / (END - START))
+  return Math.round(LO + t * (HI - LO))
+}
+
 // Interior hour marks for a block. Measures the block's own <li> and the pixel
 // positions of its start/end gutter labels (tagged data-gutter), so the marks
 // line up proportionally with them rather than against an estimate or raw height.
@@ -653,8 +666,13 @@ export default function Timeline({
       {itemBody(item)}
     </div>
   )
+  // mt-auto pins the "…ends" row to the bottom of the box, so when a long block's
+  // duration floor makes the box taller than its content, the extra height opens
+  // up BETWEEN start and end — and the interior hour marks (anchored to those two
+  // labels) spread to fill it. When content already fills the box, there's no
+  // slack and mt-auto is a no-op.
   const boxEnd = (e, hideTime) => (
-    <div key={e.id} className="relative py-1.5">
+    <div key={e.id} className="relative py-1.5 mt-auto">
       {!hideTime && (
         <span data-gutter="end" className={`absolute ${GUT} top-1 w-16 text-right text-[10px] text-faint tabular-nums`}>
           {e.label}
@@ -697,7 +715,10 @@ export default function Timeline({
             {formatMinShort(nowKid._s)}
           </span>
         )}
-        <div className="border border-line2 rounded-xl px-3 py-1.5 divide-y divide-line/60">
+        <div
+          className="border border-line2 rounded-xl px-3 py-1.5 divide-y divide-line/60 flex flex-col"
+          style={{ minHeight: boxFloorPx(b.duration) || undefined }}
+        >
           {boxItem(b, hideStart, 'start')}
           {flowKids.map(k => k.isEnd ? boxEnd(k, hideEnd) : boxItem(k))}
         </div>
