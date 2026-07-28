@@ -72,7 +72,10 @@ function Row({ s, onToggle, onRemove, onEdit }) {
         <span
           onClick={() => { setDraft(s.title); setEditing(true) }}
           title="Tap to edit"
-          className={`text-xs flex-1 min-w-0 break-words cursor-text ${s.done ? 'line-through text-faint' : 'text-muted'}`}
+          // Not flex-1: the title sizes to its content so the × sits right next to
+          // it instead of way out at the card's right edge (long reach + easy to
+          // mis-click the neighbouring row's ×).
+          className={`text-xs min-w-0 break-words cursor-text ${s.done ? 'line-through text-faint' : 'text-muted'}`}
         >
           {s.title}
         </span>
@@ -82,9 +85,10 @@ function Row({ s, onToggle, onRemove, onEdit }) {
           onClick={() => onRemove(s.id)}
           aria-label="Remove subtask"
           // Reveal on hover, matching the row's other controls (Chris's pick).
-          // Note: hover doesn't exist on touch, so the × won't show on a phone —
-          // consistent with every other subtask, deliberately kept that way.
-          className="text-faint hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-xs shrink-0"
+          // Sits next to the title with a padded, highlight-on-hover hit area so
+          // it's an easy, unambiguous target. (No hover on touch, so hidden on a
+          // phone — consistent with every other subtask, deliberately kept.)
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shrink-0 text-sm leading-none text-faint hover:text-fg rounded px-1.5 py-0.5 -my-0.5 hover:bg-surface2"
         >
           ×
         </button>
