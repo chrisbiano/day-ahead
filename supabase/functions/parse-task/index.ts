@@ -75,8 +75,14 @@ Deno.serve(async (req) => {
 
   let body: any = {}
   try { body = await req.json() } catch { /* none */ }
-  const { text, today, weekday, nowTime, tasks } = body
+  const { text, today, weekday, nowTime, tasks, upcoming } = body
   if (!text || !String(text).trim()) return json({ error: 'Expected { text }' }, 400)
+
+  // The user's real local calendar for the next few weeks, so the model resolves
+  // dates by LOOKUP, not arithmetic — "what date is Friday" is exactly the math
+  // LLMs botch (duplicates were landing a day off).
+  const dateTable = (Array.isArray(upcoming) ? upcoming : [])
+    .map((d: any) => `${d.weekday} ${d.date}`).join('\n')
 
   // Compact roster of his tasks, by [n] ref — Claude matches against these and
   // echoes the ref back, so task ids never round-trip through the model.
@@ -89,6 +95,9 @@ Deno.serve(async (req) => {
 
   const system = `You are the A.I. assistant inside Sentyra, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
 
+Date reference — his local calendar. Resolve EVERY date by copying an exact YYYY-MM-DD from this list; NEVER calculate a date yourself:
+${dateTable || '(none provided — use "" for any date)'}
+
 His current tasks are listed with [n] refs; ones marked (done) are already completed. Choose the intent:
 - "update" — the note changes an existing task IN PLACE: move / push / reschedule / retime / rename / change duration. The same task ends up somewhere else. Match by title words and context (a time like "my 2pm edit" narrows it). Return its taskRef and ONLY the fields that change; leave the rest "" (or 0 for durationMin).
 - "duplicate" — the note wants an existing task AGAIN, keeping the original: "add my X from today to tomorrow as well", "same thing again Friday", "copy it to next week", "do it again at 4". Words like also / as well / too / again / copy mean duplicate, not update. Return its taskRef, the target date, and time "" to keep the original's time (or the new time if he gives one). The copy carries the original's duration and subtasks automatically — don't restate them.
@@ -100,7 +109,7 @@ Rules:
 - Matching is FORGIVING: case-insensitive, partial names, small typos. "soundbetter" matches "SoundBetter Project"; "the monarch thing" matches "Fix Monarch". Capitalization is never a reason to fail a match. Only use "none" when two genuinely DIFFERENT tasks fit equally well.
 - Tasks marked (done) can still be duplicated — "do it again tomorrow" right after finishing something is common. Never pick a (done) task for update or complete.
 - If the note says "my X task" (or clearly names a listed task), the intent is NEVER "create" — it's update, duplicate, or complete.
-- Resolve relative dates against today: "today", "tomorrow", "Friday", "the 15th" → concrete YYYY-MM-DD.
+- Resolve dates ONLY from the Date reference list — copy the exact YYYY-MM-DD, never compute one. "today" = the first row, "tomorrow" = the second. A weekday like "Friday" = the SOONEST row with that weekday; "next Friday" = the row after that. "the 15th" = the row whose date ends in -15. If nothing matches, use "".
 - Times are 12-hour and MUST include AM or PM — never a bare "2:30". A bare number ("push it to 4") means the sensible clock reading for that task — an afternoon task moved "to 4" means 4:00 PM.
 - "at the same time" / "same time" on a duplicate means time "" — keep the original's time; never restate it.
 - If he gives a time but no date for a create, assume today (or tomorrow if that time already passed today).

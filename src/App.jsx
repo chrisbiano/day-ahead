@@ -239,6 +239,13 @@ export default function App() {
       ref: i, title: t.title, date: t.date, time: t.time, durationMin: t.duration,
       completed: t.completed,
     }))
+    // Precompute the local calendar so the model looks dates up instead of
+    // calculating them — "what date is Friday?" is exactly the arithmetic LLMs
+    // get wrong (copies were landing a day off). It copies an exact date from here.
+    const upcoming = Array.from({ length: 21 }, (_, i) => {
+      const d = new Date(now); d.setDate(d.getDate() + i)
+      return { date: toISODate(d), weekday: d.toLocaleDateString('en-US', { weekday: 'long' }) }
+    })
     const { data, error } = await supabase.functions.invoke('parse-task', {
       body: {
         text,
@@ -246,6 +253,7 @@ export default function App() {
         weekday: now.toLocaleDateString('en-US', { weekday: 'long' }),
         nowTime: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
         tasks: roster,
+        upcoming,
       },
     })
     if (error || data?.error) {
