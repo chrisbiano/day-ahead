@@ -274,6 +274,24 @@ export default function App() {
     return { ...c, time, task: src }
   }
 
+  // After a duplicate (assistant or button), jump to the day the copy actually
+  // landed on and flash it — so a copy sent to another day (e.g. "…to Friday")
+  // is visibly there instead of seeming to vanish. Returns the created task so
+  // the caller can await it and surface any failure.
+  const handleDuplicate = async (task, date, time) => {
+    const created = await duplicateTask(task, date, time)
+    if (created?.date) {
+      setSelectedDate(new Date(`${created.date}T00:00:00`))
+      setView('day')
+    }
+    if (created?.id != null) {
+      setHighlightTaskId(created.id)
+      setTimeout(() => scrollToSection(created.time ? 'schedule-section' : 'tasks-section'), 80)
+      setTimeout(() => setHighlightTaskId(null), 3000)
+    }
+    return created
+  }
+
   // Resolve a reminder deep-link once the task is known: focus its day, scroll to
   // the task list, and flash the task for a few seconds.
   useEffect(() => {
@@ -478,7 +496,7 @@ export default function App() {
               onUpdate={updateTask}
               onDelete={deleteTask}
               onDeleteSeries={deleteSeries}
-              onDuplicate={duplicateTask}
+              onDuplicate={handleDuplicate}
               onReorder={reorderTasks}
               highlightId={highlightTaskId}
               defaultDate={selectedISO}
@@ -521,7 +539,7 @@ export default function App() {
         onAdd={addTask}
         onUpdate={updateTask}
         onComplete={toggleComplete}
-        onDuplicate={duplicateTask}
+        onDuplicate={handleDuplicate}
         defaultDate={selectedISO}
       />
 

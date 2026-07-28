@@ -112,9 +112,11 @@ export default function useTasks() {
           }))
           const created = await insertTasks(rows, userIdRef.current)
           setTasks(prev => [...prev, ...created])
+          return created[0]
         } else {
           const created = await insertTask({ ...base, recurrence: null }, userIdRef.current)
           setTasks(prev => [...prev, created])
+          return created   // so callers can jump to / flash the new task
         }
       } catch (e) {
         console.error('Add task failed:', e)
@@ -132,6 +134,7 @@ export default function useTasks() {
           }))
         : [{ id: Date.now(), ...base }]
       setTasks(prev => [...prev, ...rows])
+      return rows[0]
     }
   }, [])
 
