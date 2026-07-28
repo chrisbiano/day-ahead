@@ -119,6 +119,11 @@ export default function useTasks() {
       } catch (e) {
         console.error('Add task failed:', e)
         setError(e.message || 'Could not save that task')
+        // Re-throw so awaiting callers (e.g. the assistant's duplicate confirm)
+        // can show the failure instead of silently reporting success. Fire-and-
+        // forget callers are unaffected (a rejected promise they don't await just
+        // logs — the same DB error we already console.error above).
+        throw e
       }
     } else {
       const rows = repeats

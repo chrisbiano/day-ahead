@@ -28,8 +28,9 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
   const [error, setError] = useState(null)
   const [prefill, setPrefill] = useState(null)  // create → pre-filled form
   const [confirm, setConfirm] = useState(null)  // update/complete → confirm card
+  const [applying, setApplying] = useState(false)
 
-  const reset = () => { setPrefill(null); setConfirm(null); setText(''); setError(null); setOpen(false) }
+  const reset = () => { setPrefill(null); setConfirm(null); setText(''); setError(null); setApplying(false); setOpen(false) }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -62,24 +63,32 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
 
   // Apply a confirmed update/complete/duplicate — the one place the assistant
   // touches data.
-  const applyConfirm = () => {
+  const applyConfirm = async () => {
     const c = confirm
     if (!c?.task) { reset(); return }
-    if (c.intent === 'complete') {
-      onComplete(c.task.id)
-    } else if (c.intent === 'duplicate') {
-      // Full copy — duration, reminder settings, fresh subtasks — onto the
-      // target day, keeping the original's time unless a new one was given.
-      onDuplicate(c.task, c.date ?? c.task.date, c.time || undefined)
-    } else {
-      const changes = {}
-      if (c.title) changes.title = c.title
-      if (c.date) changes.date = c.date
-      if (c.time) changes.time = c.time
-      if (c.durationMin) changes.duration = c.durationMin
-      onUpdate(c.task.id, changes)
+    setError(null); setApplying(true)
+    try {
+      if (c.intent === 'complete') {
+        await onComplete(c.task.id)
+      } else if (c.intent === 'duplicate') {
+        // Full copy — duration, reminder settings, fresh subtasks — onto the
+        // target day, keeping the original's time unless a new one was given.
+        await onDuplicate(c.task, c.date ?? c.task.date, c.time || undefined)
+      } else {
+        const changes = {}
+        if (c.title) changes.title = c.title
+        if (c.date) changes.date = c.date
+        if (c.time) changes.time = c.time
+        if (c.durationMin) changes.duration = c.durationMin
+        await onUpdate(c.task.id, changes)
+      }
+      reset()
+    } catch (err) {
+      // The write failed — keep the card open and say why, instead of closing as
+      // if it worked (the old behaviour, which made failures look like successes).
+      setApplying(false)
+      setError(err?.message || 'That didn’t save — please try again.')
     }
-    reset()
   }
 
   // One before→after row in the confirm card.
@@ -159,7 +168,7 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
             <TaskForm
               initial={prefill}
               defaultDate={defaultDate}
-              onSave={(data) => { onAdd(data); reset() }}
+              onSave={(data) => { Promise.resolve(onAdd(data)).catch(() => {}); reset() }}
               onCancel={reset}
             />
           </div>
@@ -203,18 +212,26 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
               )}
             </div>
 
+            {error && (
+              <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-fg">
+                {error}
+              </p>
+            )}
+
             <div className="flex items-center justify-end gap-2 mt-3">
               <button
                 onClick={reset}
-                className="px-3 py-1.5 text-sm rounded-lg border border-line2 text-muted hover:text-fg hover:bg-surface2 transition-colors"
+                disabled={applying}
+                className="px-3 py-1.5 text-sm rounded-lg border border-line2 text-muted hover:text-fg hover:bg-surface2 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={applyConfirm}
-                className="px-4 py-1.5 text-sm rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity"
+                disabled={applying}
+                className="px-4 py-1.5 text-sm rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
               >
-                {confirm.intent === 'complete' ? 'Mark done' : confirm.intent === 'duplicate' ? 'Add copy' : 'Apply'}
+                {applying ? 'Saving…' : confirm.intent === 'complete' ? 'Mark done' : confirm.intent === 'duplicate' ? 'Add copy' : 'Apply'}
               </button>
             </div>
           </div>
