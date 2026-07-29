@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useTasks from './hooks/useTasks'
 import useUserPrefs from './hooks/useUserPrefs'
 import { toISODate } from './lib/tasks'
@@ -282,6 +282,23 @@ export default function App() {
     return { ...c, time, task: src }
   }
 
+  // Undo for a deleted subtask. Subtasks aren't rows — they live inside their
+  // parent — so a delete can't soft-delete and never shows in "Recently deleted".
+  // The Timeline hands us a restore closure that writes the original array back.
+  const [subtaskUndo, setSubtaskUndo] = useState(null)
+  const subtaskUndoTimer = useRef(null)
+  useEffect(() => () => { if (subtaskUndoTimer.current) clearTimeout(subtaskUndoTimer.current) }, [])
+  const onSubtaskDeleted = (title, restore) => {
+    if (subtaskUndoTimer.current) clearTimeout(subtaskUndoTimer.current)
+    setSubtaskUndo({ label: `Deleted “${title || 'subtask'}”`, restore })
+    subtaskUndoTimer.current = setTimeout(() => setSubtaskUndo(null), 8000)
+  }
+  const undoSubtaskDelete = () => {
+    if (subtaskUndoTimer.current) clearTimeout(subtaskUndoTimer.current)
+    subtaskUndo?.restore?.()
+    setSubtaskUndo(null)
+  }
+
   // After a duplicate (assistant or button), jump to the day the copy actually
   // landed on and flash it — so a copy sent to another day (e.g. "…to Friday")
   // is visibly there instead of seeming to vanish. Returns the created task so
@@ -447,6 +464,7 @@ export default function App() {
             onSetEventSubtasks={setEventSubtasks}
             onToggleEventDone={toggleEventDone}
             onUpdateTask={updateTask}
+            onSubtaskDeleted={onSubtaskDeleted}
             onToggleReminder={toggleReminder}
             onSnooze={snoozeTask}
             onUnsnooze={unsnoozeTask}
@@ -562,6 +580,14 @@ export default function App() {
         undoable={undoableDelete ? { label: `Deleted “${undoableDelete.task.title}”` } : null}
         onUndo={undoDelete}
         onDismiss={dismissUndoDelete}
+      />
+
+      {/* Undo for a deleted subtask — its only net, since subtasks can't be
+          soft-deleted into "Recently deleted". */}
+      <UndoToast
+        undoable={subtaskUndo}
+        onUndo={undoSubtaskDelete}
+        onDismiss={() => setSubtaskUndo(null)}
       />
     </Layout>
   )

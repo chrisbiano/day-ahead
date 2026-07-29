@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -133,6 +133,25 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, onTo
   const [snoozeFor, setSnoozeFor] = useState(null) // taskId whose snooze picker is open
   const [showCompleted, setShowCompleted] = useState(false)
   const [showDeleted, setShowDeleted] = useState(false)
+
+  // "Recently deleted", grouped. Stopping a repeat (or deleting a series' future
+  // dates) soft-deletes every later occurrence at once — dozens of rows, all
+  // stamped the same moment, which read as "stuff I never deleted". Collapse each
+  // of those bursts into ONE entry (same series + same delete moment) that
+  // restores the whole set. Single deletes are untouched.
+  const deletedGroups = useMemo(() => {
+    const out = []
+    const seen = new Map()
+    for (const t of deletedTasks) {
+      const key = t.seriesId ? `${t.seriesId} ${String(t.deletedAt ?? '').slice(0, 16)}` : null
+      const group = key ? seen.get(key) : null
+      if (group) { group.items.push(t); continue }
+      const fresh = { key: key ?? `task-${t.id}`, items: [t] }
+      if (key) seen.set(key, fresh)
+      out.push(fresh)
+    }
+    return out
+  }, [deletedTasks])
 
   // Press-and-move on the grip drags; a tap/click elsewhere doesn't start a drag.
   const sensors = useSensors(
@@ -497,33 +516,40 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, onTo
       {/* The permanent net: anything deleted in the last 30 days, restorable.
           Not day-filtered — a deleted task is findable no matter what you're
           viewing. After 30 days they purge for real. */}
-      {deletedTasks.length > 0 && (
+      {deletedGroups.length > 0 && (
         <div className="mt-3">
           <button
             onClick={() => setShowDeleted(v => !v)}
             className="flex items-center gap-1.5 text-xs font-medium text-faint hover:text-muted transition-colors"
           >
             <span className={`transition-transform ${showDeleted ? 'rotate-90' : ''}`}>›</span>
-            Recently deleted ({deletedTasks.length})
+            Recently deleted ({deletedGroups.length})
           </button>
           {showDeleted && (
             <div className="space-y-2 mt-3">
-              {deletedTasks.map(t => (
-                <div key={t.id} className="card p-3 opacity-70 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted truncate">{t.title}</p>
-                    <p className="text-xs text-faint mt-0.5">
-                      {t.date ? prettyDate(t.date) : 'no date'}{t.time ? ` · ${t.time}` : ''} — deleted {deletedWhen(t.deletedAt)}
-                    </p>
+              {deletedGroups.map(g => {
+                const t = g.items[0]
+                const many = g.items.length > 1
+                return (
+                  <div key={g.key} className="card p-3 opacity-70 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-muted truncate">{t.title}</p>
+                      <p className="text-xs text-faint mt-0.5">
+                        {many
+                          ? `↻ repeating · ${g.items.length} dates`
+                          : `${t.date ? prettyDate(t.date) : 'no date'}${t.time ? ` · ${t.time}` : ''}`}
+                        {' '}— deleted {deletedWhen(t.deletedAt)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => g.items.forEach(i => onRestore(i.id))}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
+                    >
+                      {many ? 'Restore all' : 'Restore'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => onRestore(t.id)}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
-                  >
-                    Restore
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

@@ -228,6 +228,7 @@ export default function Timeline({
   onUnsnooze,
   onDelete,
   onDeleteSeries,
+  onSubtaskDeleted,
   highlightId,
   view,
   onChangeView,
@@ -501,11 +502,23 @@ export default function Timeline({
               ? onToggleEventSubtask(metaOf(item), id)
               : onToggleSubtask(item.rawId, id)
           }
-          onRemove={(id) =>
-            item.kind === 'event'
-              ? onRemoveEventSubtask(metaOf(item), id)
-              : onUpdateTask(item.rawId, { subtasks: item.subtasks.filter(s => s.id !== id) })
-          }
+          onRemove={(id) => {
+            // Subtasks live inside their parent (a task's JSON array / an event's
+            // notes row), so a delete leaves no soft-deleted row and nothing lands
+            // in "Recently deleted" — it was unrecoverable. Hand the parent an undo
+            // that writes the exact array back.
+            const before = item.subtasks
+            const gone = before.find(s => s.id === id)
+            const next = before.filter(s => s.id !== id)
+            if (item.kind === 'event') {
+              const meta = metaOf(item)
+              onSetEventSubtasks(meta, next)
+              onSubtaskDeleted?.(gone?.title, () => onSetEventSubtasks(meta, before))
+            } else {
+              onUpdateTask(item.rawId, { subtasks: next })
+              onSubtaskDeleted?.(gone?.title, () => onUpdateTask(item.rawId, { subtasks: before }))
+            }
+          }}
           onEdit={(id, title) => {
             const next = item.subtasks.map(s => (s.id === id ? { ...s, title } : s))
             item.kind === 'event'
