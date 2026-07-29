@@ -262,30 +262,39 @@ Deno.serve(async (req) => {
 
   if (!accounts?.length) return json({ emails: [], remaining: 0, classified: 0 })
 
-  // 1. What's in the inboxes right now (ids only — one cheap call per mailbox).
-  const seen: { id: string; account: any }[] = []
+  // 1. Per mailbox, list the ids in the inbox and the subset still unread (cheap,
+  //    ids only). Unread drives triage; keeping both sets lets us reconcile with
+  //    Gmail below — an item read or archived there should leave Sentyra too.
+  const inboxByAccount = new Map<string, { ids: Set<string>; truncated: boolean }>()
+  const unreadByAccount = new Map<string, { ids: Set<string>; truncated: boolean }>()
+  const unreadSeen: { id: string; account: any }[] = []
   const accountErrors: string[] = []
-  for (const acct of accounts) {
-    const token = await freshAccessToken(admin, acct)
-    if (!token) { accountErrors.push(`${acct.email}: token refresh failed`); continue }
-
-    const params = new URLSearchParams({
-      q: 'in:inbox newer_than:7d',
-      maxResults: String(LIST_PER_ACCOUNT),
-    })
+  const listIds = async (token: string, q: string) => {
+    const params = new URLSearchParams({ q, maxResults: String(LIST_PER_ACCOUNT) })
     const r = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
       { headers: { Authorization: `Bearer ${token}` } },
     )
-    if (!r.ok) {
-      // Almost always "insufficient scope" — the account was connected before
-      // Gmail was added and needs reconnecting. Say so instead of showing zero.
-      const detail = r.status === 403 ? 'needs reconnect (no Gmail permission)' : `HTTP ${r.status}`
-      accountErrors.push(`${acct.email}: ${detail}`)
+    if (!r.ok) return { ids: null as string[] | null, status: r.status }
+    const ids = ((await r.json()).messages ?? []).map((m: any) => m.id) as string[]
+    return { ids, status: 200 }
+  }
+  for (const acct of accounts) {
+    const token = await freshAccessToken(admin, acct)
+    if (!token) { accountErrors.push(`${acct.email}: token refresh failed`); continue }
+    const [inbox, unread] = await Promise.all([
+      listIds(token, 'in:inbox newer_than:8d'),
+      listIds(token, 'in:inbox is:unread newer_than:8d'),
+    ])
+    if (!inbox.ids || !unread.ids) {
+      // Almost always "insufficient scope" — connected before Gmail was added.
+      const status = inbox.status !== 200 ? inbox.status : unread.status
+      accountErrors.push(`${acct.email}: ${status === 403 ? 'needs reconnect (no Gmail permission)' : `HTTP ${status}`}`)
       continue
     }
-    const j = await r.json()
-    for (const m of j.messages ?? []) seen.push({ id: m.id, account: { ...acct, token } })
+    inboxByAccount.set(acct.email, { ids: new Set(inbox.ids), truncated: inbox.ids.length >= LIST_PER_ACCOUNT })
+    unreadByAccount.set(acct.email, { ids: new Set(unread.ids), truncated: unread.ids.length >= LIST_PER_ACCOUNT })
+    for (const id of unread.ids) unreadSeen.push({ id, account: { ...acct, token } })
   }
 
   // 2. Which of those has Claude already judged?
@@ -304,7 +313,7 @@ Deno.serve(async (req) => {
   // Keyed by mailbox too — Gmail ids are only unique within one mailbox.
   const key = (accountEmail: string, id: string) => `${accountEmail} ${id}`
   const knownIds = new Set((known ?? []).map((k: any) => key(k.account_email, k.message_id)))
-  const todo = seen.filter((s) => !knownIds.has(key(s.account.email, s.id)))
+  const todo = unreadSeen.filter((s) => !knownIds.has(key(s.account.email, s.id)))
   const batchIds = todo.slice(0, MAX_PER_RUN)
 
   // 3. Fetch full bodies for just this batch, in parallel.
@@ -366,6 +375,35 @@ Deno.serve(async (req) => {
     }
   }
 
+  // 4b. Reconcile with Gmail so the two don't drift. An item read (non-reply) or
+  //     archived in Gmail is no longer something to do here → clear it. Reply
+  //     items clear ONLY once they've left the inbox (archived/replied): merely
+  //     reading a reply in Gmail must not risk it vanishing before it's answered.
+  //     Skipped for any mailbox whose id list was truncated or failed this run,
+  //     so we never clear something we simply didn't fetch.
+  const { data: openVerdicts } = await admin
+    .from('email_verdicts')
+    .select('id, message_id, account_email, action')
+    .eq('user_id', userId)
+    .is('handled_at', null)
+    .gte('received_at', new Date(Date.now() - 8 * 86_400_000).toISOString())
+
+  const clearIds: number[] = []
+  for (const v of openVerdicts ?? []) {
+    const inbox = inboxByAccount.get(v.account_email)
+    const unread = unreadByAccount.get(v.account_email)
+    if (!inbox || !unread || inbox.truncated || unread.truncated) continue
+    if (!inbox.ids.has(v.message_id)) clearIds.push(v.id)                                  // archived / deleted
+    else if (!unread.ids.has(v.message_id) && v.action !== 'reply') clearIds.push(v.id)    // read (kept a reply)
+  }
+  let cleared = 0
+  if (clearIds.length) {
+    await admin.from('email_verdicts')
+      .update({ handled_at: new Date().toISOString() })
+      .in('id', clearIds)
+    cleared = clearIds.length
+  }
+
   // 5. Hand back the whole unhandled inbox, freshly judged bits included.
   const { data: emails } = await admin
     .from('email_verdicts')
@@ -378,6 +416,7 @@ Deno.serve(async (req) => {
   return json({
     emails: emails ?? [],
     classified,
+    cleared,
     remaining: Math.max(0, todo.length - batchIds.length),
     accountErrors,
   })
