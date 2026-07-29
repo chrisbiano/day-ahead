@@ -25,7 +25,7 @@ const MAX_PER_RUN = 20         // messages classified per invocation (one Claude
 // Gmail returns newest first. This has to comfortably exceed a week's mail in a
 // busy mailbox or the older half of the window is never even looked at — it
 // wouldn't error, it would just quietly never appear in the list.
-const LIST_PER_ACCOUNT = 100
+const LIST_PER_ACCOUNT = 300   // read+unread inbox mail over 8 days easily tops 100
 const BODY_CHARS = 1500        // enough to find an ask buried a few paragraphs down
 
 // supabase-js sends x-client-info/apikey on invoke — all of them must be
@@ -392,9 +392,18 @@ Deno.serve(async (req) => {
   for (const v of openVerdicts ?? []) {
     const inbox = inboxByAccount.get(v.account_email)
     const unread = unreadByAccount.get(v.account_email)
-    if (!inbox || !unread || inbox.truncated || unread.truncated) continue
-    if (!inbox.ids.has(v.message_id)) clearIds.push(v.id)                                  // archived / deleted
-    else if (!unread.ids.has(v.message_id) && v.action !== 'reply') clearIds.push(v.id)    // read (kept a reply)
+    if (!inbox || !unread) continue   // mailbox failed this run — leave it alone
+    if (v.action === 'reply') {
+      // A reply clears only once it has LEFT the inbox (archived/replied). That
+      // needs the full inbox list, so trust it only when it wasn't truncated —
+      // don't confuse "beyond the fetch cap" with "archived".
+      if (!inbox.truncated && !inbox.ids.has(v.message_id)) clearIds.push(v.id)
+    } else {
+      // Everything else clears as soon as it's no longer unread-in-inbox — read
+      // OR archived, we clear either way. This only needs the (small) unread
+      // list, so a huge inbox never blocks it.
+      if (!unread.truncated && !unread.ids.has(v.message_id)) clearIds.push(v.id)
+    }
   }
   let cleared = 0
   if (clearIds.length) {
