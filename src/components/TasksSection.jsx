@@ -124,7 +124,7 @@ function SortableTaskItem({ id, children }) {
   return children({ setNodeRef, style, dragHandle: { ...attributes, ...listeners } })
 }
 
-export default function TasksSection({ tasks, deletedTasks = [], onRestore, deletedSubtasks = [], onRestoreSubtask, onToggleReminder, onSnooze, onUnsnooze, onToggleComplete, onAdd, onUpdate, onDelete, onDeleteSeries, onDuplicate, onReorder, highlightId, defaultDate }) {
+export default function TasksSection({ tasks, deletedTasks = [], onRestore, deletedSubtasks = [], onToggleReminder, onSnooze, onUnsnooze, onToggleComplete, onAdd, onUpdate, onDelete, onDeleteSeries, onDuplicate, onReorder, highlightId, defaultDate }) {
   const [form, setForm] = useState(null) // null | 'new' | taskId
   const [confirmDelete, setConfirmDelete] = useState(null) // taskId of a repeating task
   const [dupFor, setDupFor] = useState(null)   // taskId whose "duplicate to…" picker is open
@@ -140,9 +140,20 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, dele
   // of those bursts into ONE entry (same series + same delete moment) that
   // restores the whole set. Single deletes are untouched.
   const deletedGroups = useMemo(() => {
+    // TODAY only. A week-old deletion isn't something you're about to undo, it's
+    // clutter — this is a same-day safety net, not an archive.
+    const now = new Date()
+    const deletedToday = (iso) => {
+      if (!iso) return false
+      const d = new Date(iso)
+      return d.getFullYear() === now.getFullYear()
+        && d.getMonth() === now.getMonth()
+        && d.getDate() === now.getDate()
+    }
     const out = []
     const seen = new Map()
     for (const t of deletedTasks) {
+      if (!deletedToday(t.deletedAt)) continue
       const key = t.seriesId ? `${t.seriesId} ${String(t.deletedAt ?? '').slice(0, 16)}` : null
       const group = key ? seen.get(key) : null
       if (group) { group.items.push(t); continue }
@@ -150,9 +161,8 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, dele
       if (key) seen.set(key, fresh)
       out.push(fresh)
     }
-    // Deleted subtasks share the section — same promise, same 30 days.
     for (const d of deletedSubtasks) {
-      out.push({ key: `sub-${d.key}`, when: d.sub.deletedAt, sub: d })
+      if (deletedToday(d.deletedAt)) out.push({ key: `sub-${d.key}`, when: d.deletedAt, sub: d })
     }
     return out.sort((a, b) => new Date(b.when ?? 0) - new Date(a.when ?? 0))
   }, [deletedTasks, deletedSubtasks])
@@ -527,7 +537,7 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, dele
             className="flex items-center gap-1.5 text-xs font-medium text-faint hover:text-muted transition-colors"
           >
             <span className={`transition-transform ${showDeleted ? 'rotate-90' : ''}`}>›</span>
-            Recently deleted ({deletedGroups.length})
+            Deleted today ({deletedGroups.length})
           </button>
           {showDeleted && (
             <div className="space-y-2 mt-3">
@@ -536,13 +546,13 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, dele
                 if (g.sub) return (
                   <div key={g.key} className="card p-3 opacity-70 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm text-muted truncate">{g.sub.sub.title}</p>
+                      <p className="text-sm text-muted truncate">{g.sub.title}</p>
                       <p className="text-xs text-faint mt-0.5 truncate">
-                        subtask of {g.sub.taskTitle} — deleted {deletedWhen(g.sub.sub.deletedAt)}
+                        subtask of {g.sub.parent || 'a block'} — deleted {deletedWhen(g.sub.deletedAt)}
                       </p>
                     </div>
                     <button
-                      onClick={() => onRestoreSubtask(g.sub.taskId, g.sub.sub.id)}
+                      onClick={() => g.sub.restore()}
                       className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
                     >
                       Restore

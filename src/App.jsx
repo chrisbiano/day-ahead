@@ -148,6 +148,8 @@ export default function App() {
     toggleSubtask: toggleEventSubtask,
     removeSubtask: removeEventSubtask,
     setSubtasks: setEventSubtasks,
+    restoreSubtask: restoreEventSubtask,
+    deletedSubtasks: deletedEventSubtasks,
     toggleDone: toggleEventDone,
     backfillContext,
   } = useEventNotes()
@@ -285,9 +287,21 @@ export default function App() {
     return { ...c, time, task: src }
   }
 
-  // Undo for a deleted subtask. Subtasks aren't rows — they live inside their
-  // parent — so a delete can't soft-delete and never shows in "Recently deleted".
-  // The Timeline hands us a restore closure that writes the original array back.
+  // Deleted subtasks from both stores — a task's own array and an event's notes —
+  // flattened to one shape so the list doesn't care where they came from.
+  const deletedSubtaskEntries = [
+    ...deletedSubtasks.map(d => ({
+      key: `t-${d.key}`, title: d.sub.title, parent: d.taskTitle,
+      deletedAt: d.sub.deletedAt, restore: () => restoreSubtask(d.taskId, d.sub.id),
+    })),
+    ...deletedEventSubtasks.map(d => ({
+      key: `e-${d.key}`, title: d.sub.title, parent: d.parentTitle,
+      deletedAt: d.sub.deletedAt, restore: () => restoreEventSubtask(d.eventId, d.sub.id),
+    })),
+  ]
+
+  // Undo for a deleted subtask — the quick catch; "Deleted today" is the real net.
+  // The Timeline hands us a restore closure so this works for either store.
   const [subtaskUndo, setSubtaskUndo] = useState(null)
   const subtaskUndoTimer = useRef(null)
   useEffect(() => () => { if (subtaskUndoTimer.current) clearTimeout(subtaskUndoTimer.current) }, [])
@@ -470,6 +484,7 @@ export default function App() {
             onSubtaskDeleted={onSubtaskDeleted}
             onDeleteSubtask={deleteSubtask}
             onRestoreSubtask={restoreSubtask}
+            onRestoreEventSubtask={restoreEventSubtask}
             onToggleReminder={toggleReminder}
             onSnooze={snoozeTask}
             onUnsnooze={unsnoozeTask}
@@ -519,8 +534,7 @@ export default function App() {
               tasks={untimedTasks}
               deletedTasks={deletedTasks}
               onRestore={restoreTask}
-              deletedSubtasks={deletedSubtasks}
-              onRestoreSubtask={restoreSubtask}
+              deletedSubtasks={deletedSubtaskEntries}
               onToggleReminder={toggleReminder}
               onSnooze={snoozeTask}
               onUnsnooze={unsnoozeTask}

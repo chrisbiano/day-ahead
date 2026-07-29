@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
@@ -97,15 +97,39 @@ export default function useEventNotes() {
     })
   }, [persist])
 
+  // Soft, exactly like a task's subtasks: stamp deletedAt in place so the subtask
+  // is hidden but restorable from "Deleted today" instead of gone for good.
   const removeSubtask = useCallback((event, subId) => {
     const cur = get(event.id)
-    persist(event, { ...cur, subtasks: cur.subtasks.filter(s => s.id !== subId) })
+    const deletedAt = new Date().toISOString()
+    persist(event, {
+      ...cur,
+      subtasks: cur.subtasks.map(s => (s.id === subId ? { ...s, deletedAt } : s)),
+    })
+  }, [persist])
+
+  const restoreSubtask = useCallback((eventId, subId) => {
+    const cur = get(eventId)
+    // The note stores its own title/date/time, so it can be rewritten without the
+    // original event object in hand.
+    persist({ id: eventId, title: cur.title, date: cur.date, time: cur.time }, {
+      ...cur,
+      subtasks: cur.subtasks.map(s => {
+        if (s.id !== subId) return s
+        const { deletedAt: _gone, ...live } = s
+        return live
+      }),
+    })
   }, [persist])
 
   // Replace the whole subtasks array — used for reordering (drag) and renaming.
+  // Callers only see live subtasks, so re-attach any hidden deleted ones or this
+  // would quietly drop them.
   const setSubtasks = useCallback((event, subtasks) => {
     const cur = get(event.id)
-    persist(event, { ...cur, subtasks })
+    const incoming = new Set(subtasks.map(s => s.id))
+    const hidden = (cur.subtasks || []).filter(s => s.deletedAt && !incoming.has(s.id))
+    persist(event, { ...cur, subtasks: [...subtasks, ...hidden] })
   }, [persist])
 
   // "I'm wrapped up with this block" — Sentinel-side only.
@@ -149,5 +173,30 @@ export default function useEventNotes() {
     }
   }, [persist])
 
-  return { notes, loading, addSubtask, toggleSubtask, removeSubtask, setSubtasks, toggleDone, backfillContext }
+  // Consumers see only live subtasks; the soft-deleted ones come back separately
+  // so they can be listed (and restored) alongside deleted tasks.
+  const visibleNotes = useMemo(() => {
+    const out = {}
+    for (const [id, n] of Object.entries(notes)) {
+      out[id] = (n.subtasks || []).some(s => s.deletedAt)
+        ? { ...n, subtasks: n.subtasks.filter(s => !s.deletedAt) }
+        : n
+    }
+    return out
+  }, [notes])
+
+  const deletedSubtasks = useMemo(() => {
+    const out = []
+    for (const [id, n] of Object.entries(notes)) {
+      for (const s of n.subtasks || []) {
+        if (s.deletedAt) out.push({ key: `${id}:${s.id}`, eventId: id, parentTitle: n.title, sub: s })
+      }
+    }
+    return out
+  }, [notes])
+
+  return {
+    notes: visibleNotes, loading, addSubtask, toggleSubtask, removeSubtask,
+    restoreSubtask, deletedSubtasks, setSubtasks, toggleDone, backfillContext,
+  }
 }

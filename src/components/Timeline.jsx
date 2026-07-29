@@ -231,6 +231,7 @@ export default function Timeline({
   onSubtaskDeleted,
   onDeleteSubtask,
   onRestoreSubtask,
+  onRestoreEventSubtask,
   highlightId,
   view,
   onChangeView,
@@ -512,11 +513,9 @@ export default function Timeline({
             const before = item.subtasks
             const gone = before.find(s => s.id === id)
             if (item.kind === 'event') {
-              // Event notes are a separate store with no soft-delete — the toast
-              // is the net here.
               const meta = metaOf(item)
-              onSetEventSubtasks(meta, before.filter(s => s.id !== id))
-              onSubtaskDeleted?.(gone?.title, () => onSetEventSubtasks(meta, before))
+              onRemoveEventSubtask(meta, id)          // soft — stamped in the note
+              onSubtaskDeleted?.(gone?.title, () => onRestoreEventSubtask(meta.id, id))
             } else {
               // Soft — it lands in "Recently deleted" until restored or aged out.
               onDeleteSubtask(item.rawId, id)
