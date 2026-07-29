@@ -26,6 +26,7 @@ const MAX_PER_RUN = 20         // messages classified per invocation (one Claude
 // busy mailbox or the older half of the window is never even looked at — it
 // wouldn't error, it would just quietly never appear in the list.
 const LIST_PER_ACCOUNT = 300   // read+unread inbox mail over 8 days easily tops 100
+const RECON_LIST_MAX = 500     // id-only sweeps used to sync with Gmail's read/inbox state
 const BODY_CHARS = 1500        // enough to find an ask buried a few paragraphs down
 
 // supabase-js sends x-client-info/apikey on invoke — all of them must be
@@ -269,8 +270,8 @@ Deno.serve(async (req) => {
   const unreadByAccount = new Map<string, { ids: Set<string>; truncated: boolean }>()
   const unreadSeen: { id: string; account: any }[] = []
   const accountErrors: string[] = []
-  const listIds = async (token: string, q: string) => {
-    const params = new URLSearchParams({ q, maxResults: String(LIST_PER_ACCOUNT) })
+  const listIds = async (token: string, q: string, max: number) => {
+    const params = new URLSearchParams({ q, maxResults: String(max) })
     const r = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
       { headers: { Authorization: `Bearer ${token}` } },
@@ -282,19 +283,24 @@ Deno.serve(async (req) => {
   for (const acct of accounts) {
     const token = await freshAccessToken(admin, acct)
     if (!token) { accountErrors.push(`${acct.email}: token refresh failed`); continue }
-    const [inbox, unread] = await Promise.all([
-      listIds(token, 'in:inbox newer_than:8d'),
-      listIds(token, 'in:inbox is:unread newer_than:8d'),
+    // Three cheap id-only sweeps: recent unread-in-inbox is what we TRIAGE (kept
+    // narrow to bound Claude cost); ALL unread and ALL inbox (any age) are what
+    // we reconcile against, so even an old newsletter that's finally read/archived
+    // in Gmail drops off here.
+    const [triage, unreadAll, inboxAll] = await Promise.all([
+      listIds(token, 'in:inbox is:unread newer_than:8d', LIST_PER_ACCOUNT),
+      listIds(token, 'is:unread', RECON_LIST_MAX),
+      listIds(token, 'in:inbox', RECON_LIST_MAX),
     ])
-    if (!inbox.ids || !unread.ids) {
+    if (!triage.ids || !unreadAll.ids || !inboxAll.ids) {
       // Almost always "insufficient scope" — connected before Gmail was added.
-      const status = inbox.status !== 200 ? inbox.status : unread.status
+      const status = [triage, unreadAll, inboxAll].find((x) => x.status !== 200)?.status ?? 500
       accountErrors.push(`${acct.email}: ${status === 403 ? 'needs reconnect (no Gmail permission)' : `HTTP ${status}`}`)
       continue
     }
-    inboxByAccount.set(acct.email, { ids: new Set(inbox.ids), truncated: inbox.ids.length >= LIST_PER_ACCOUNT })
-    unreadByAccount.set(acct.email, { ids: new Set(unread.ids), truncated: unread.ids.length >= LIST_PER_ACCOUNT })
-    for (const id of unread.ids) unreadSeen.push({ id, account: { ...acct, token } })
+    for (const id of triage.ids) unreadSeen.push({ id, account: { ...acct, token } })
+    unreadByAccount.set(acct.email, { ids: new Set(unreadAll.ids), truncated: unreadAll.ids.length >= RECON_LIST_MAX })
+    inboxByAccount.set(acct.email, { ids: new Set(inboxAll.ids), truncated: inboxAll.ids.length >= RECON_LIST_MAX })
   }
 
   // 2. Which of those has Claude already judged?
@@ -381,12 +387,13 @@ Deno.serve(async (req) => {
   //     reading a reply in Gmail must not risk it vanishing before it's answered.
   //     Skipped for any mailbox whose id list was truncated or failed this run,
   //     so we never clear something we simply didn't fetch.
+  // Every item still showing in Sentyra (any age) — so an old newsletter that's
+  // finally read in Gmail gets reconciled too, not just the last week's mail.
   const { data: openVerdicts } = await admin
     .from('email_verdicts')
     .select('id, message_id, account_email, action')
     .eq('user_id', userId)
     .is('handled_at', null)
-    .gte('received_at', new Date(Date.now() - 8 * 86_400_000).toISOString())
 
   const clearIds: number[] = []
   for (const v of openVerdicts ?? []) {
