@@ -36,6 +36,9 @@ export default function App() {
     reorderTasks,
     deletedTasks,
     restoreTask,
+    deleteSubtask,
+    restoreSubtask,
+    deletedSubtasks,
     undoableDelete,
     undoDelete,
     dismissUndoDelete,
@@ -465,6 +468,8 @@ export default function App() {
             onToggleEventDone={toggleEventDone}
             onUpdateTask={updateTask}
             onSubtaskDeleted={onSubtaskDeleted}
+            onDeleteSubtask={deleteSubtask}
+            onRestoreSubtask={restoreSubtask}
             onToggleReminder={toggleReminder}
             onSnooze={snoozeTask}
             onUnsnooze={unsnoozeTask}
@@ -514,6 +519,8 @@ export default function App() {
               tasks={untimedTasks}
               deletedTasks={deletedTasks}
               onRestore={restoreTask}
+              deletedSubtasks={deletedSubtasks}
+              onRestoreSubtask={restoreSubtask}
               onToggleReminder={toggleReminder}
               onSnooze={snoozeTask}
               onUnsnooze={unsnoozeTask}

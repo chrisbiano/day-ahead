@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import {
   fetchTasks, insertTask, insertTasks, updateTaskRow,
@@ -153,7 +153,9 @@ export default function useTasks() {
       ...(date !== undefined ? { date } : {}),
       ...(time !== undefined ? { time } : {}),
       completed: false,
-      subtasks: (subtasks || []).map(s => ({ id: newSubId(), title: s.title, done: false })),
+      subtasks: (subtasks || [])
+        .filter(s => !s.deletedAt)   // a copy never inherits a deleted subtask
+        .map(s => ({ id: newSubId(), title: s.title, done: false })),
     })
   }, [addTask])
 
@@ -177,6 +179,15 @@ export default function useTasks() {
 
   const updateTask = useCallback((id, data) => {
     const cur = tasksRef.current.find(t => t.id === id)
+
+    // Callers only ever SEE live subtasks (soft-deleted ones are filtered out of
+    // the exported tasks), so any write that replaces the array would silently
+    // drop them. Re-attach the hidden ones the incoming array doesn't mention.
+    if (Array.isArray(data.subtasks) && cur) {
+      const incoming = new Set(data.subtasks.map(s => s.id))
+      const hidden = (cur.subtasks || []).filter(s => s.deletedAt && !incoming.has(s.id))
+      if (hidden.length) data = { ...data, subtasks: [...data.subtasks, ...hidden] }
+    }
 
     // "Stop repeating" from the edit form: this occurrence becomes a one-off,
     // and the series' LATER occurrences are removed (soft — they land in
@@ -227,7 +238,9 @@ export default function useTasks() {
           ...blueprint,
           date,
           completed: false,
-          subtasks: (merged.subtasks || []).map(s => ({ id: newSubId(), title: s.title, done: false })),
+          subtasks: (merged.subtasks || [])
+            .filter(s => !s.deletedAt)
+            .map(s => ({ id: newSubId(), title: s.title, done: false })),
         }))
 
       if (isSupabaseConfigured) {
@@ -259,6 +272,31 @@ export default function useTasks() {
     setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...local } : t)))
     if (isSupabaseConfigured) updateTaskRow(id, patch).catch(e => console.error('Update failed:', e))
   }, [])
+
+  // A subtask isn't a row, so it can't be soft-deleted the way a task is. Instead
+  // it's stamped deletedAt IN PLACE inside its parent's array: hidden everywhere,
+  // but still there to restore from "Recently deleted". (A toast alone is a
+  // six-second net, not a spot — the same call Chris made for task deletes.)
+  const deleteSubtask = useCallback((taskId, subId) => {
+    const t = tasksRef.current.find(x => x.id === taskId)
+    if (!t) return
+    const deletedAt = new Date().toISOString()
+    updateTask(taskId, {
+      subtasks: (t.subtasks || []).map(s => (s.id === subId ? { ...s, deletedAt } : s)),
+    })
+  }, [updateTask])
+
+  const restoreSubtask = useCallback((taskId, subId) => {
+    const t = tasksRef.current.find(x => x.id === taskId)
+    if (!t) return
+    updateTask(taskId, {
+      subtasks: (t.subtasks || []).map(s => {
+        if (s.id !== subId) return s
+        const { deletedAt: _gone, ...live } = s
+        return live
+      }),
+    })
+  }, [updateTask])
 
   // Deleting is instant but SOFT: the row is stamped deleted_at (reminder
   // silenced) and lands in "Recently deleted", restorable for 30 days. The
@@ -383,10 +421,36 @@ export default function useTasks() {
     if (isSupabaseConfigured) updateTaskRow(taskId, { subtasks: nextSubs }).catch(e => console.error(e))
   }, [])
 
+  // Outside this hook a task shows only its LIVE subtasks; the soft-deleted ones
+  // are surfaced separately for "Recently deleted" (and aged out at 30 days there,
+  // matching how deleted tasks behave).
+  const visibleTasks = useMemo(
+    () => tasks.map(t => (
+      (t.subtasks || []).some(s => s.deletedAt)
+        ? { ...t, subtasks: t.subtasks.filter(s => !s.deletedAt) }
+        : t
+    )),
+    [tasks],
+  )
+
+  const deletedSubtasks = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86_400_000
+    const out = []
+    for (const t of tasks) {
+      for (const s of t.subtasks || []) {
+        if (s.deletedAt && new Date(s.deletedAt).getTime() > cutoff) {
+          out.push({ key: `${t.id}:${s.id}`, taskId: t.id, taskTitle: t.title, sub: s })
+        }
+      }
+    }
+    return out.sort((a, b) => new Date(b.sub.deletedAt) - new Date(a.sub.deletedAt))
+  }, [tasks])
+
   return {
-    tasks, loading, error, clearError: () => setError(null),
+    tasks: visibleTasks, loading, error, clearError: () => setError(null),
     addTask, updateTask, deleteTask, deleteSeries, duplicateTask, reorderTasks,
     deletedTasks, restoreTask, undoableDelete, undoDelete, dismissUndoDelete,
+    deleteSubtask, restoreSubtask, deletedSubtasks,
     toggleReminder, snoozeTask, unsnoozeTask, toggleComplete, toggleSubtask,
   }
 }

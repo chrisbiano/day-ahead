@@ -124,7 +124,7 @@ function SortableTaskItem({ id, children }) {
   return children({ setNodeRef, style, dragHandle: { ...attributes, ...listeners } })
 }
 
-export default function TasksSection({ tasks, deletedTasks = [], onRestore, onToggleReminder, onSnooze, onUnsnooze, onToggleComplete, onAdd, onUpdate, onDelete, onDeleteSeries, onDuplicate, onReorder, highlightId, defaultDate }) {
+export default function TasksSection({ tasks, deletedTasks = [], onRestore, deletedSubtasks = [], onRestoreSubtask, onToggleReminder, onSnooze, onUnsnooze, onToggleComplete, onAdd, onUpdate, onDelete, onDeleteSeries, onDuplicate, onReorder, highlightId, defaultDate }) {
   const [form, setForm] = useState(null) // null | 'new' | taskId
   const [confirmDelete, setConfirmDelete] = useState(null) // taskId of a repeating task
   const [dupFor, setDupFor] = useState(null)   // taskId whose "duplicate to…" picker is open
@@ -146,12 +146,16 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, onTo
       const key = t.seriesId ? `${t.seriesId} ${String(t.deletedAt ?? '').slice(0, 16)}` : null
       const group = key ? seen.get(key) : null
       if (group) { group.items.push(t); continue }
-      const fresh = { key: key ?? `task-${t.id}`, items: [t] }
+      const fresh = { key: key ?? `task-${t.id}`, when: t.deletedAt, items: [t] }
       if (key) seen.set(key, fresh)
       out.push(fresh)
     }
-    return out
-  }, [deletedTasks])
+    // Deleted subtasks share the section — same promise, same 30 days.
+    for (const d of deletedSubtasks) {
+      out.push({ key: `sub-${d.key}`, when: d.sub.deletedAt, sub: d })
+    }
+    return out.sort((a, b) => new Date(b.when ?? 0) - new Date(a.when ?? 0))
+  }, [deletedTasks, deletedSubtasks])
 
   // Press-and-move on the grip drags; a tap/click elsewhere doesn't start a drag.
   const sensors = useSensors(
@@ -528,6 +532,23 @@ export default function TasksSection({ tasks, deletedTasks = [], onRestore, onTo
           {showDeleted && (
             <div className="space-y-2 mt-3">
               {deletedGroups.map(g => {
+                // A deleted subtask — restoring puts it back on its parent task.
+                if (g.sub) return (
+                  <div key={g.key} className="card p-3 opacity-70 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-muted truncate">{g.sub.sub.title}</p>
+                      <p className="text-xs text-faint mt-0.5 truncate">
+                        subtask of {g.sub.taskTitle} — deleted {deletedWhen(g.sub.sub.deletedAt)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onRestoreSubtask(g.sub.taskId, g.sub.sub.id)}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                )
                 const t = g.items[0]
                 const many = g.items.length > 1
                 return (
