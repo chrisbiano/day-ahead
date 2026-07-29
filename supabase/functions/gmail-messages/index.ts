@@ -26,7 +26,7 @@ const MAX_PER_RUN = 20         // messages classified per invocation (one Claude
 // busy mailbox or the older half of the window is never even looked at — it
 // wouldn't error, it would just quietly never appear in the list.
 const LIST_PER_ACCOUNT = 300   // read+unread inbox mail over 8 days easily tops 100
-const RECON_LIST_MAX = 500     // id-only sweeps used to sync with Gmail's read/inbox state
+const RECON_BATCH = 15         // per-message Gmail state checks run in parallel batches of this
 const BODY_CHARS = 1500        // enough to find an ask buried a few paragraphs down
 
 // supabase-js sends x-client-info/apikey on invoke — all of them must be
@@ -266,9 +266,8 @@ Deno.serve(async (req) => {
   // 1. Per mailbox, list the ids in the inbox and the subset still unread (cheap,
   //    ids only). Unread drives triage; keeping both sets lets us reconcile with
   //    Gmail below — an item read or archived there should leave Sentyra too.
-  const inboxByAccount = new Map<string, { ids: Set<string>; truncated: boolean }>()
-  const unreadByAccount = new Map<string, { ids: Set<string>; truncated: boolean }>()
   const unreadSeen: { id: string; account: any }[] = []
+  const tokenByAccount = new Map<string, string>()   // for the per-message reconcile below
   const accountErrors: string[] = []
   const listIds = async (token: string, q: string, max: number) => {
     const params = new URLSearchParams({ q, maxResults: String(max) })
@@ -283,24 +282,16 @@ Deno.serve(async (req) => {
   for (const acct of accounts) {
     const token = await freshAccessToken(admin, acct)
     if (!token) { accountErrors.push(`${acct.email}: token refresh failed`); continue }
-    // Three cheap id-only sweeps: recent unread-in-inbox is what we TRIAGE (kept
-    // narrow to bound Claude cost); ALL unread and ALL inbox (any age) are what
-    // we reconcile against, so even an old newsletter that's finally read/archived
-    // in Gmail drops off here.
-    const [triage, unreadAll, inboxAll] = await Promise.all([
-      listIds(token, 'in:inbox is:unread newer_than:8d', LIST_PER_ACCOUNT),
-      listIds(token, 'is:unread', RECON_LIST_MAX),
-      listIds(token, 'in:inbox', RECON_LIST_MAX),
-    ])
-    if (!triage.ids || !unreadAll.ids || !inboxAll.ids) {
-      // Almost always "insufficient scope" — connected before Gmail was added.
-      const status = [triage, unreadAll, inboxAll].find((x) => x.status !== 200)?.status ?? 500
-      accountErrors.push(`${acct.email}: ${status === 403 ? 'needs reconnect (no Gmail permission)' : `HTTP ${status}`}`)
+    tokenByAccount.set(acct.email, token)
+    // Recent unread-in-inbox is what we TRIAGE (narrow, to bound Claude cost).
+    // Read/archive reconciliation is done per-message below, not from a list.
+    const triage = await listIds(token, 'in:inbox is:unread newer_than:8d', LIST_PER_ACCOUNT)
+    if (!triage.ids) {
+      const detail = triage.status === 403 ? 'needs reconnect (no Gmail permission)' : `HTTP ${triage.status}`
+      accountErrors.push(`${acct.email}: ${detail}`)
       continue
     }
     for (const id of triage.ids) unreadSeen.push({ id, account: { ...acct, token } })
-    unreadByAccount.set(acct.email, { ids: new Set(unreadAll.ids), truncated: unreadAll.ids.length >= RECON_LIST_MAX })
-    inboxByAccount.set(acct.email, { ids: new Set(inboxAll.ids), truncated: inboxAll.ids.length >= RECON_LIST_MAX })
   }
 
   // 2. Which of those has Claude already judged?
@@ -381,43 +372,54 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 4b. Reconcile with Gmail so the two don't drift. An item read (non-reply) or
-  //     archived in Gmail is no longer something to do here → clear it. Reply
-  //     items clear ONLY once they've left the inbox (archived/replied): merely
-  //     reading a reply in Gmail must not risk it vanishing before it's answered.
-  //     Skipped for any mailbox whose id list was truncated or failed this run,
-  //     so we never clear something we simply didn't fetch.
-  // Every item still showing in Sentyra (any age) — so an old newsletter that's
-  // finally read in Gmail gets reconciled too, not just the last week's mail.
-  const { data: openVerdicts } = await admin
-    .from('email_verdicts')
-    .select('id, message_id, account_email, action')
-    .eq('user_id', userId)
-    .is('handled_at', null)
-
-  const clearIds: number[] = []
-  for (const v of openVerdicts ?? []) {
-    const inbox = inboxByAccount.get(v.account_email)
-    const unread = unreadByAccount.get(v.account_email)
-    if (!inbox || !unread) continue   // mailbox failed this run — leave it alone
-    if (v.action === 'reply') {
-      // A reply clears only once it has LEFT the inbox (archived/replied). That
-      // needs the full inbox list, so trust it only when it wasn't truncated —
-      // don't confuse "beyond the fetch cap" with "archived".
-      if (!inbox.truncated && !inbox.ids.has(v.message_id)) clearIds.push(v.id)
-    } else {
-      // Everything else clears as soon as it's no longer unread-in-inbox — read
-      // OR archived, we clear either way. This only needs the (small) unread
-      // list, so a huge inbox never blocks it.
-      if (!unread.truncated && !unread.ids.has(v.message_id)) clearIds.push(v.id)
-    }
-  }
+  // 4b. Reconcile with Gmail, PER MESSAGE. For each item still showing in Sentyra
+  //     we ask Gmail for that exact message's live labels — UNREAD present = still
+  //     unread, INBOX present = still in the inbox — and clear the ones already
+  //     dealt with there. Per-message (not a list diff) so it can't be fooled by
+  //     how much mail is unread, how old the item is, or a sender who sends many.
+  //     Only runs when we're not mid-backlog, so a first-run flood of
+  //     classification passes doesn't multiply these calls.
   let cleared = 0
-  if (clearIds.length) {
-    await admin.from('email_verdicts')
-      .update({ handled_at: new Date().toISOString() })
-      .in('id', clearIds)
-    cleared = clearIds.length
+  if (todo.length <= MAX_PER_RUN) {
+    const { data: openVerdicts } = await admin
+      .from('email_verdicts')
+      .select('id, message_id, account_email, action')
+      .eq('user_id', userId)
+      .is('handled_at', null)
+      .limit(200)
+
+    const liveState = async (v: any) => {
+      const token = tokenByAccount.get(v.account_email)
+      if (!token) return null            // that mailbox failed this run — leave it
+      const r = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${v.message_id}?format=minimal&fields=labelIds`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (r.status === 404) return { gone: true, unread: false, inInbox: false }  // deleted / not found
+      if (!r.ok) return null              // transient error — don't touch it this run
+      const labels: string[] = (await r.json()).labelIds ?? []
+      return { gone: false, unread: labels.includes('UNREAD'), inInbox: labels.includes('INBOX') }
+    }
+
+    const clearIds: number[] = []
+    const list = openVerdicts ?? []
+    for (let i = 0; i < list.length; i += RECON_BATCH) {
+      const slice = list.slice(i, i + RECON_BATCH)
+      const states = await Promise.all(slice.map(liveState))
+      slice.forEach((v, k) => {
+        const s = states[k]
+        if (!s) return
+        if (s.gone) { clearIds.push(v.id); return }                        // gone from Gmail entirely
+        if (v.action === 'reply') { if (!s.inInbox) clearIds.push(v.id) }  // reply: only once it leaves the inbox
+        else if (!s.unread || !s.inInbox) clearIds.push(v.id)              // else: read OR archived
+      })
+    }
+    if (clearIds.length) {
+      await admin.from('email_verdicts')
+        .update({ handled_at: new Date().toISOString() })
+        .in('id', clearIds)
+      cleared = clearIds.length
+    }
   }
 
   // 5. Hand back the whole unhandled inbox, freshly judged bits included.
