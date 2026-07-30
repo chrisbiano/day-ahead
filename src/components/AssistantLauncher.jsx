@@ -213,7 +213,7 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
             </div>
 
             {error && (
-              <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-fg">
+              <p className="mt-3 rounded-lg border border-warn-line/40 bg-warn/10 px-3 py-2 text-sm text-fg">
                 {error}
               </p>
             )}

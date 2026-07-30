@@ -252,7 +252,7 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
       {note && <p className="text-sm text-fg mt-3">{note}</p>}
 
       {error && (
-        <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+        <div className="mt-3 rounded-lg border border-warn-line/40 bg-warn/10 px-3 py-2">
           <p className="text-sm text-fg">{error}</p>
           {perm === 'denied' && (
             <p className="text-xs text-muted mt-1.5">
@@ -537,6 +537,33 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
                 checked={settings.hideCompleted}
                 onChange={() => onChange({ ...settings, hideCompleted: !settings.hideCompleted })}
               />
+            </div>
+
+            {/* Appearance — Auto follows the device, so a phone on a night
+                schedule switches without anyone touching this. */}
+            <div className="mt-4 pt-3 border-t border-line">
+              <p className="text-sm text-fg">Appearance</p>
+              <p className="text-xs text-faint mt-0.5">
+                {(settings.theme || 'dark') === 'auto'
+                  ? 'Following your device setting.'
+                  : `Always ${settings.theme || 'dark'}.`}
+              </p>
+              <div className="mt-2.5 inline-flex rounded-lg border border-line2 p-0.5 gap-0.5">
+                {['auto', 'light', 'dark'].map(opt => {
+                  const active = (settings.theme || 'dark') === opt
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => onChange({ ...settings, theme: opt })}
+                      className={`px-3 py-1 text-sm rounded-md capitalize transition-colors ${
+                        active ? 'bg-accent text-accent-fg font-medium' : 'text-muted hover:text-fg hover:bg-surface2'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
 

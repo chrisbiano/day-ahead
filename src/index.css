@@ -3,9 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* Monochrome dark theme — neutral grey, low contrast. Edit these values to
+     re-color the whole app; the light theme below mirrors them.
+     `--c-warn-*` exist so the amber "double-booked" / error accents can darken
+     on a light background (amber-400 on white is unreadable). */
   :root {
-    /* Monochrome dark theme — neutral grey, low contrast.
-       Edit these ten values to re-color the whole app. */
     --c-bg: 10 10 10;        /* near black  */
     --c-surface: 23 23 23;   /* card        */
     --c-surface2: 33 33 33;  /* raised card */
@@ -16,6 +18,43 @@
     --c-faint: 115 115 115;  /* faint text  */
     --c-accent: 250 250 250; /* white accent */
     --c-accent-fg: 10 10 10; /* on accent   */
+    --c-warn: 251 191 36;    /* amber-400   */
+    --c-warn-line: 245 158 11; /* amber-500 */
+  }
+
+  /* Light theme — the same ten decisions, inverted. Applied when the user picks
+     Light, or when they're on Auto and the OS is light. `data-theme` always wins
+     over the media query, so an explicit choice sticks. */
+  :root[data-theme='light'] {
+    --c-bg: 250 250 250;
+    --c-surface: 255 255 255;
+    --c-surface2: 244 244 245;
+    --c-line: 228 228 231;
+    --c-line2: 205 205 211;
+    --c-fg: 24 24 27;
+    --c-muted: 82 82 91;
+    --c-faint: 125 125 135;
+    --c-accent: 24 24 27;
+    --c-accent-fg: 250 250 250;
+    --c-warn: 180 83 9;       /* amber-700 — readable on white */
+    --c-warn-line: 217 119 6; /* amber-600 */
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']):not([data-theme='light']) {
+      --c-bg: 250 250 250;
+      --c-surface: 255 255 255;
+      --c-surface2: 244 244 245;
+      --c-line: 228 228 231;
+      --c-line2: 205 205 211;
+      --c-fg: 24 24 27;
+      --c-muted: 82 82 91;
+      --c-faint: 125 125 135;
+      --c-accent: 24 24 27;
+      --c-accent-fg: 250 250 250;
+      --c-warn: 180 83 9;
+      --c-warn-line: 217 119 6;
+    }
   }
 
   body {

@@ -23,7 +23,9 @@ import UndoToast from './components/UndoToast'
 import useMorningBrief from './hooks/useMorningBrief'
 
 const SETTINGS_KEY = 'sentinel.settings.v1'
-const defaultSettings = { hideCompleted: false }
+// theme: 'dark' | 'light' | 'auto'. Defaults to dark — the app has always been
+// dark, so an existing user's look never changes without them asking.
+const defaultSettings = { hideCompleted: false, theme: 'dark' }
 
 export default function App() {
   const {
@@ -76,6 +78,26 @@ export default function App() {
       // non-fatal
     }
   }, [settings])
+
+  // Apply the chosen theme. 'auto' removes the attribute so the CSS
+  // prefers-color-scheme block takes over — and we listen for OS changes so it
+  // flips live. The browser-UI colours are kept in step with the palette.
+  useEffect(() => {
+    const pick = settings.theme || 'dark'
+    const mq = window.matchMedia('(prefers-color-scheme: light)')
+    const apply = () => {
+      const root = document.documentElement
+      if (pick === 'auto') root.removeAttribute('data-theme')
+      else root.setAttribute('data-theme', pick)
+      const light = pick === 'light' || (pick === 'auto' && mq.matches)
+      document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', light ? 'light' : 'dark')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#fafafa' : '#0a0a0a')
+    }
+    apply()
+    if (pick !== 'auto') return
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [settings.theme])
 
   const [showGreeting, setShowGreeting] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)

@@ -109,7 +109,7 @@ function EditableTitle({ title, done, editable, overlaps, onSave }) {
       />
     )
   }
-  const color = done ? 'line-through text-faint' : overlaps ? 'text-amber-400' : 'text-fg'
+  const color = done ? 'line-through text-faint' : overlaps ? 'text-warn' : 'text-fg'
   return (
     <h3
       onClick={() => { if (editable) { setDraft(title); setEditing(true) } }}
@@ -422,7 +422,7 @@ export default function Timeline({
         {/* A separate item claiming time another item already owns — a
             heads-up to fold it into that block or move it. */}
         {item.overlaps && (
-          <span className="text-[10px] text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 whitespace-nowrap">
+          <span className="text-[10px] text-warn border border-warn-line/40 bg-warn/10 rounded px-1.5 py-0.5 whitespace-nowrap">
             overlap
           </span>
         )}

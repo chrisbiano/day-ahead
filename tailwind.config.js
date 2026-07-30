@@ -17,6 +17,10 @@ export default {
         faint: 'rgb(var(--c-faint) / <alpha-value>)',
         accent: 'rgb(var(--c-accent) / <alpha-value>)',
         'accent-fg': 'rgb(var(--c-accent-fg) / <alpha-value>)',
+        // Amber accents (double-booked, error cards) — tokenised so they darken
+        // on a light background instead of washing out.
+        warn: 'rgb(var(--c-warn) / <alpha-value>)',
+        'warn-line': 'rgb(var(--c-warn-line) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Geist', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
