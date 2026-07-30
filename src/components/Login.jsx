@@ -34,7 +34,7 @@ export default function Login() {
           <span className="w-2 h-2 rounded-full bg-fg/70" />
           <span className="text-sm font-medium tracking-[0.14em] uppercase">Day Ahead</span>
         </div>
-        <h1 className="text-xl font-medium tracking-tight mb-1">Your daily command center</h1>
+        <h1 className="text-xl font-medium tracking-tight mb-1">Wake up to clarity</h1>
         <p className="text-muted text-sm mb-8">Sign in to see your day.</p>
 
         <button

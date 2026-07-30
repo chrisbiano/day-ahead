@@ -1,7 +1,7 @@
 {
   "name": "Day Ahead",
   "short_name": "Day Ahead",
-  "description": "Your daily command center",
+  "description": "Wake up to clarity",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

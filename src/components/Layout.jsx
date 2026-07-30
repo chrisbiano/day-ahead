@@ -30,7 +30,7 @@ export default function Layout({ children, onOpenSettings, onRefresh, refreshing
           <div className="flex justify-between items-center gap-4">
             <div>
               <h1 className="text-lg sm:text-xl font-medium tracking-tight text-fg">Day Ahead</h1>
-              <p className="text-muted text-xs sm:text-sm">Your daily command center</p>
+              <p className="text-muted text-xs sm:text-sm">Wake up to clarity</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {/* Pull fresh calendar data on demand — an event just edited in
