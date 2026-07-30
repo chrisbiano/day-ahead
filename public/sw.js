@@ -1,22 +1,22 @@
-/* Sentyra service worker.
+/* Day Ahead service worker.
  *
  * Two jobs: make the app installable (an active SW is required for the iOS
  * "Add to Home Screen" → notifications path), and receive push messages so
- * reminders reach the phone even when Sentyra isn't open.
+ * reminders reach the phone even when Day Ahead isn't open.
  *
- * Intentionally cache-free for now — Sentyra is live, personal, and always
+ * Intentionally cache-free for now — Day Ahead is live, personal, and always
  * online; a stale-cache SW would just serve old bundles (a bug we already hit
  * once with Safari). If offline support is wanted later, add it deliberately. */
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
-// A reminder arrives as a push. Show it; tapping it opens Sentyra to the task.
+// A reminder arrives as a push. Show it; tapping it opens Day Ahead to the task.
 self.addEventListener('push', (event) => {
   let payload = {}
   try { payload = event.data ? event.data.json() : {} } catch { payload = { body: event.data && event.data.text() } }
 
-  const title = payload.title || 'Sentyra'
+  const title = payload.title || 'Day Ahead'
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || '',

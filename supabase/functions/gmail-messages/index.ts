@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
 
   // 1. Per mailbox, list the ids in the inbox and the subset still unread (cheap,
   //    ids only). Unread drives triage; keeping both sets lets us reconcile with
-  //    Gmail below — an item read or archived there should leave Sentyra too.
+  //    Gmail below — an item read or archived there should leave Day Ahead too.
   const unreadSeen: { id: string; account: any }[] = []
   const tokenByAccount = new Map<string, string>()   // for the per-message reconcile below
   const accountErrors: string[] = []
@@ -372,7 +372,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 4b. Reconcile with Gmail, PER MESSAGE. For each item still showing in Sentyra
+  // 4b. Reconcile with Gmail, PER MESSAGE. For each item still showing in Day Ahead
   //     we ask Gmail for that exact message's live labels — UNREAD present = still
   //     unread, INBOX present = still in the inbox — and clear the ones already
   //     dealt with there. Per-message (not a list diff) so it can't be fooled by

@@ -54,7 +54,7 @@ function withTimeout(promise, ms, message) {
 }
 
 const REOPEN_HINT =
-  'Notifications aren’t ready yet — Sentyra is still finishing setup after being added to your Home Screen. Fully close the app (swipe it away in the app switcher) and reopen it, then try again.'
+  'Notifications aren’t ready yet — Day Ahead is still finishing setup after being added to your Home Screen. Fully close the app (swipe it away in the app switcher) and reopen it, then try again.'
 
 // Get an active service-worker registration we can subscribe against. On a fresh
 // install the `load`-time registration may not have run in this context yet, so
@@ -84,12 +84,12 @@ export async function enablePush() {
   const permission = await withTimeout(
     Notification.requestPermission(),
     30000,
-    'The notification permission prompt didn’t respond. Fully close Sentyra and reopen it, then try again.',
+    'The notification permission prompt didn’t respond. Fully close Day Ahead and reopen it, then try again.',
   )
   if (permission !== 'granted') {
     throw new Error(
       permission === 'denied'
-        ? 'Notifications are blocked for Sentyra in your settings.'
+        ? 'Notifications are blocked for Day Ahead in your settings.'
         : 'Notification permission was dismissed.',
     )
   }
@@ -103,7 +103,7 @@ export async function enablePush() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       }),
       15000,
-      'Couldn’t register this device for notifications. Fully close Sentyra and reopen it, then try again.',
+      'Couldn’t register this device for notifications. Fully close Day Ahead and reopen it, then try again.',
     )
   }
 

@@ -1,4 +1,4 @@
-// Sentyra — the A.I. assistant's brain. Turns a plain-language note into ONE
+// Day Ahead — the A.I. assistant's brain. Turns a plain-language note into ONE
 // structured command: create a task, update an existing one, or complete one.
 // It only PROPOSES — the app shows the result and Chris confirms before anything
 // saves (create opens the pre-filled form; update/complete show a confirm card).
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.completed ? ' (done)' : ''}`)
     .join('\n')
 
-  const system = `You are the A.I. assistant inside Sentyra, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
+  const system = `You are the A.I. assistant inside Day Ahead, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
 
 Date reference — his local calendar. Resolve EVERY date by copying an exact YYYY-MM-DD from this list; NEVER calculate a date yourself:
 ${dateTable || '(none provided — use "" for any date)'}
