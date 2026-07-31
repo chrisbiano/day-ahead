@@ -56,6 +56,33 @@ function localNow(tz: string): string {
   }).format(new Date())
 }
 
+// Clock helpers for TASKS, which store a start label ("2:00 PM") plus a duration
+// in minutes. Same problem as events: without the end time a task in progress
+// looks finished. All computed here — never left to the model.
+function toMinutes(label?: string | null): number | null {
+  const m = String(label ?? '').match(/(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)?/i)
+  if (!m) return null
+  let h = Number(m[1])
+  const ap = m[3]?.toLowerCase()
+  if (ap) { h = h % 12; if (ap.startsWith('p')) h += 12 }
+  return h * 60 + Number(m[2])
+}
+
+function fromMinutes(total: number): string {
+  const h24 = Math.floor(total / 60) % 24
+  const mm = String(total % 60).padStart(2, '0')
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${mm} ${h24 < 12 ? 'AM' : 'PM'}`
+}
+
+// Minutes past midnight, right now, in the user's zone.
+function localMinutes(tz: string): number {
+  const p: Record<string, string> = {}
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  for (const part of f.formatToParts(new Date())) if (part.type !== 'literal') p[part.type] = part.value
+  return Number(p.hour) * 60 + Number(p.minute)
+}
+
 // "YYYY-MM-DD" + 1 day (pure date arithmetic, no timezone involved).
 function nextDay(localDate: string): string {
   const [Y, M, D] = localDate.split('-').map(Number)
@@ -84,6 +111,7 @@ function zonedMidnightUTC(localDate: string, tz: string): Date {
 // Events Chris has "wrapped up" in Day Ahead (event_notes.done) are marked (done)
 // so the brief never presents a finished block as still ahead.
 async function eventsToday(admin: any, userId: string, localDate: string, tz: string, wrapped: Set<string>) {
+  const nowMs = Date.now()
   try {
     // The user's local day, as real UTC instants.
     const timeMin = zonedMidnightUTC(localDate, tz).toISOString()
@@ -104,9 +132,18 @@ async function eventsToday(admin: any, userId: string, localDate: string, tz: st
         return ((await r.json()).items ?? [])
           .filter((e: any) => e.status !== 'cancelled' && e.start?.dateTime)
           .map((e: any) => {
-            const t = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(new Date(e.start.dateTime))
+            const fmt = (d: Date) =>
+              new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(d)
+            const start = new Date(e.start.dateTime)
+            const end = e.end?.dateTime ? new Date(e.end.dateTime) : null
+            // Send the whole RANGE, and work out "happening now" here rather than
+            // leaving the model to infer it. With only a start time it called a
+            // 1:00–2:30 block finished at 1:45.
+            const when = end ? `${fmt(start)}–${fmt(end)}` : fmt(start)
+            const live = end && nowMs >= start.getTime() && nowMs < end.getTime()
+              ? ' (IN PROGRESS RIGHT NOW)' : ''
             const done = wrapped.has(`${acct.email}:${cal.id}:${e.id}`) ? ' (done)' : ''
-            return `${t} — ${e.summary || '(no title)'}${done}`
+            return `${when} — ${e.summary || '(no title)'}${live}${done}`
           })
       }))
       return evs.flat()
@@ -131,7 +168,7 @@ Deno.serve(async (req) => {
   const date = body.today || new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
 
   const { data: tasks } = await admin
-    .from('tasks').select('title, time, completed')
+    .from('tasks').select('title, time, duration, completed')
     .eq('user_id', userId).eq('date', date).is('deleted_at', null)
   const openTasks = (tasks ?? []).filter((t: any) => !t.completed)
   const { count: needReply } = await admin
@@ -142,12 +179,20 @@ Deno.serve(async (req) => {
     .from('event_notes').select('event_id').eq('user_id', userId).eq('done', true)
   const wrapped = new Set((wrappedRows ?? []).map((w: any) => w.event_id))
   const events = await eventsToday(admin, userId, date, tz, wrapped)
+  const nowMin = localMinutes(tz)
 
   const facts = [
     `Today's date: ${date}. Right now it is ${localNow(tz)}.`,
     events.length ? `Calendar today:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Calendar today: nothing scheduled.',
     openTasks.length
-      ? `Open tasks today:\n${openTasks.map((t: any) => `- ${t.title}${t.time ? ` (${t.time})` : ''}`).join('\n')}`
+      ? `Open tasks today:\n${openTasks.map((t: any) => {
+          const s = toMinutes(t.time)
+          if (s === null) return `- ${t.title}`
+          const dur = Number(t.duration) || 0
+          const when = dur > 0 ? `${fromMinutes(s)}–${fromMinutes(s + dur)}` : fromMinutes(s)
+          const live = dur > 0 && nowMin >= s && nowMin < s + dur ? ' (IN PROGRESS RIGHT NOW)' : ''
+          return `- ${t.title} (${when})${live}`
+        }).join('\n')}`
       : 'Open tasks today: none.',
     `Emails needing a reply: ${needReply ?? 0}.`,
   ].join('\n\n')
@@ -158,7 +203,7 @@ Deno.serve(async (req) => {
     const res = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 400,
-      system: `You write Chris's one-glance daily brief for Day Ahead, his daily command center. He runs a video production company and plays in a band. This is a LIVING brief he may open at any hour, and the current time is given — anchor everything to it. Speak to what's still ahead from now; do NOT recap the whole day as if it's morning. Anything scheduled before the current time has already passed — treat it as behind him (done or missed), not upcoming. Match the tone to the time of day: morning = the day ahead, midday/afternoon = what's left, evening = wrap-up (and a nod to tomorrow if today is basically done). Anything marked (done) is already finished — never present it as pending or ahead. Given the facts, write 2–4 short sentences (or tight lines) naming the actual things that matter right now: what's still on the schedule, anything time-sensitive, and what's waiting on him. Warm, direct, concrete. No greeting like "Good morning", no filler, no markdown headers. If little remains, say so briefly. Plain text only.`,
+      system: `You write Chris's one-glance daily brief for Day Ahead, his daily command center. He runs a video production company and plays in a band. This is a LIVING brief he may open at any hour, and the current time is given — anchor everything to it. Speak to what's still ahead from now; do NOT recap the whole day as if it's morning. Times are given as ranges (start–end). An item is behind him ONLY once its END time has passed — a block that started earlier but ends later is still HAPPENING, never call it finished. Anything tagged (IN PROGRESS RIGHT NOW) is running this minute: mention it as current and say when it ends. Match the tone to the time of day: morning = the day ahead, midday/afternoon = what's left, evening = wrap-up (and a nod to tomorrow if today is basically done). Anything marked (done) is already finished — never present it as pending or ahead. Given the facts, write 2–4 short sentences (or tight lines) naming the actual things that matter right now: what's still on the schedule, anything time-sensitive, and what's waiting on him. Warm, direct, concrete. No greeting like "Good morning", no filler, no markdown headers. If little remains, say so briefly. Plain text only.`,
       messages: [{ role: 'user', content: facts }],
     })
     brief = (res.content.find((b: any) => b.type === 'text')?.text ?? '').trim()
