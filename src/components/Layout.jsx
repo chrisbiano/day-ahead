@@ -9,21 +9,6 @@ function RefreshIcon({ spinning }) {
   )
 }
 
-/* The brand mark, glyph-only: the arch with the sun on its threshold. No tile —
-   it sits directly on the header beside the wordmark (the guideline's horizontal
-   lockup). Drawn in currentColor so it picks up the gold accent and adapts with
-   the theme. */
-function BrandMark({ className = '' }) {
-  return (
-    <svg viewBox="0 0 48 52" fill="none" className={className} aria-hidden="true">
-      <path d="M4 45.5 H44" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.4" />
-      <path d="M10 45.5 V22 A14 14 0 0 1 38 22 V45.5"
-        stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      <path d="M14.5 45.5 A9.5 9.5 0 0 1 33.5 45.5 Z" fill="currentColor" />
-    </svg>
-  )
-}
-
 export default function Layout({ children, onOpenSettings, onRefresh, refreshing }) {
   return (
     <div
@@ -44,7 +29,16 @@ export default function Layout({ children, onOpenSettings, onRefresh, refreshing
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center gap-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <BrandMark className="w-7 h-7 sm:w-8 sm:h-8 text-accent shrink-0" />
+              {/* The app icon itself, beside the wordmark. This is the bright
+                  glyph variant (same file the browser tab uses) rather than the
+                  full home-screen art: that version is mostly dark, and at ~32px
+                  it reads as an empty black square. */}
+              <img
+                src="/favicon.svg"
+                alt=""
+                aria-hidden="true"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-[9px] shrink-0"
+              />
               <div className="min-w-0">
                 <h1 className="font-display text-xl sm:text-2xl leading-none tracking-tight text-fg">Day Ahead</h1>
                 <p className="text-muted text-xs sm:text-sm mt-0.5">Wake up to clarity</p>
