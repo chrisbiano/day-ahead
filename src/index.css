@@ -7,53 +7,57 @@
      re-color the whole app; the light theme below mirrors them.
      `--c-warn-*` exist so the amber "double-booked" / error accents can darken
      on a light background (amber-400 on white is unreadable). */
+  /* Day Ahead brand palette (from the guideline sheet). */
   :root {
-    --c-bg: 10 10 10;        /* near black  */
-    --c-surface: 23 23 23;   /* card        */
-    --c-surface2: 33 33 33;  /* raised card */
-    --c-line: 38 38 38;      /* hairline    */
-    --c-line2: 64 64 64;     /* hover line  */
-    --c-fg: 245 245 245;     /* text        */
-    --c-muted: 163 163 163;  /* muted text  */
-    --c-faint: 115 115 115;  /* faint text  */
-    --c-accent: 250 250 250; /* white accent */
-    --c-accent-fg: 10 10 10; /* on accent   */
-    --c-warn: 251 191 36;    /* amber-400   */
-    --c-warn-line: 245 158 11; /* amber-500 */
+    --c-bg: 11 11 12;         /* #0B0B0C background */
+    --c-surface: 22 22 22;    /* #161616 surface    */
+    --c-surface2: 32 32 33;   /* raised card — sits between surface and border */
+    --c-line: 42 42 42;       /* #2A2A2A border     */
+    --c-line2: 62 62 63;      /* hover line         */
+    --c-fg: 247 247 244;      /* #F7F7F4 primary text   */
+    --c-muted: 156 156 156;   /* #9C9C9C secondary text */
+    --c-faint: 110 110 110;   /* faint text         */
+    --c-accent: 245 200 120;  /* #F5C878 gold       */
+    --c-accent-fg: 11 11 12;  /* brand background, on gold */
+    /* Warning shifts orange so "double-booked" never reads as the gold accent. */
+    --c-warn: 251 146 60;     /* orange-400 */
+    --c-warn-line: 249 115 22; /* orange-500 */
   }
 
   /* Light theme — the same ten decisions, inverted. Applied when the user picks
      Light, or when they're on Auto and the OS is light. `data-theme` always wins
      over the media query, so an explicit choice sticks. */
   :root[data-theme='light'] {
-    --c-bg: 250 250 250;
+    --c-bg: 250 250 248;      /* warmed toward the brand's cream */
     --c-surface: 255 255 255;
-    --c-surface2: 244 244 245;
-    --c-line: 228 228 231;
-    --c-line2: 205 205 211;
-    --c-fg: 24 24 27;
-    --c-muted: 82 82 91;
-    --c-faint: 113 113 122;
-    --c-accent: 24 24 27;
-    --c-accent-fg: 250 250 250;
-    --c-warn: 180 83 9;       /* amber-700 — readable on white */
-    --c-warn-line: 217 119 6; /* amber-600 */
+    --c-surface2: 244 243 239;
+    --c-line: 230 228 222;
+    --c-line2: 207 204 196;
+    --c-fg: 26 26 28;
+    --c-muted: 90 89 86;
+    --c-faint: 119 117 110;   /* ~4.5:1 on the light bg */
+    /* Deeper gold than the dark theme's #F5C878 — light gold on near-white has
+       too little edge contrast for buttons to read as buttons. */
+    --c-accent: 198 141 52;
+    --c-accent-fg: 255 253 248;
+    --c-warn: 194 65 12;      /* orange-700 — readable on white */
+    --c-warn-line: 234 88 12; /* orange-600 */
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme='dark']):not([data-theme='light']) {
-      --c-bg: 250 250 250;
+      --c-bg: 250 250 248;
       --c-surface: 255 255 255;
-      --c-surface2: 244 244 245;
-      --c-line: 228 228 231;
-      --c-line2: 205 205 211;
-      --c-fg: 24 24 27;
-      --c-muted: 82 82 91;
-      --c-faint: 113 113 122;
-      --c-accent: 24 24 27;
-      --c-accent-fg: 250 250 250;
-      --c-warn: 180 83 9;
-      --c-warn-line: 217 119 6;
+      --c-surface2: 244 243 239;
+      --c-line: 230 228 222;
+      --c-line2: 207 204 196;
+      --c-fg: 26 26 28;
+      --c-muted: 90 89 86;
+      --c-faint: 119 117 110;
+      --c-accent: 198 141 52;
+      --c-accent-fg: 255 253 248;
+      --c-warn: 194 65 12;      /* orange-700 — readable on white */
+      --c-warn-line: 234 88 12; /* orange-600 */
     }
   }
 
@@ -78,6 +82,13 @@
 
   .card-hover {
     @apply hover:border-line2 hover:-translate-y-0.5;
+  }
+
+  /* Used by the daily brief and the needs-reply cards. It was referenced in three
+     places but never actually defined, so those cards silently had a plain
+     border — now they carry the gold edge they were always meant to. */
+  .card-border-accent {
+    @apply border-accent/45;
   }
 
   .section-title {
