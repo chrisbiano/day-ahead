@@ -16,7 +16,7 @@ export default function GreetingHeader({ onReviewAll, onDismiss }) {
           <span className="w-1.5 h-1.5 rounded-full bg-fg/70 animate-pulse"></span>
           Synced just now
         </div>
-        <h2 className="text-xl sm:text-2xl font-medium tracking-tight text-fg">{greeting}, Chris</h2>
+        <h2 className="font-display text-2xl sm:text-3xl tracking-tight text-fg">{greeting}, Chris</h2>
         <p className="text-muted text-sm mt-0.5">
           {dateLabel} · Here's what needs your attention
         </p>

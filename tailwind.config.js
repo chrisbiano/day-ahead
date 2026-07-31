@@ -24,6 +24,11 @@ export default {
       },
       fontFamily: {
         sans: ['Geist', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        // Display face for headings — the brand sheet specifies Canela, which is
+        // commercial; Instrument Serif is the free stand-in with the same warm,
+        // high-contrast character. Headings only — it's a display face and gets
+        // fragile at UI sizes, so body/labels stay sans.
+        display: ['Instrument Serif', 'Canela', 'Georgia', 'serif'],
       },
     },
   },

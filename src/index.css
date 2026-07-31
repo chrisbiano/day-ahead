@@ -3,11 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  /* Monochrome dark theme — neutral grey, low contrast. Edit these values to
-     re-color the whole app; the light theme below mirrors them.
-     `--c-warn-*` exist so the amber "double-booked" / error accents can darken
-     on a light background (amber-400 on white is unreadable). */
-  /* Day Ahead brand palette (from the guideline sheet). */
+  /* Day Ahead brand palette, from the guideline sheet. Edit these values to
+     re-colour the whole app; the light theme below mirrors them.
+     `--c-warn-*` exist so the "double-booked" / error accents stay distinct from
+     the gold accent and remain readable on a light background. */
   :root {
     --c-bg: 11 11 12;         /* #0B0B0C background */
     --c-surface: 22 22 22;    /* #161616 surface    */
@@ -92,7 +91,7 @@
   }
 
   .section-title {
-    @apply text-base sm:text-lg font-medium text-fg tracking-tight;
+    @apply font-display text-lg sm:text-xl text-fg tracking-tight;
   }
 
   .input {
