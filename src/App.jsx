@@ -91,7 +91,7 @@ export default function App() {
       else root.setAttribute('data-theme', pick)
       const light = pick === 'light' || (pick === 'auto' && mq.matches)
       document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', light ? 'light' : 'dark')
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#fafafa' : '#0a0a0a')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#fafafa' : '#0B0B0C')
     }
     apply()
     if (pick !== 'auto') return
