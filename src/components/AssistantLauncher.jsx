@@ -199,7 +199,7 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
                   {confirm.task.kind === 'event' ? 'Will be added as a task on ' : 'A copy will be added on '}
                   <span className="text-fg">{prettyDate(confirm.date ?? confirm.task.date)}</span>
                   {' '}at <span className="text-fg">{confirm.time || confirm.task.time || 'anytime'}</span>
-                  {confirm.task.kind !== 'event' && confirm.task.subtasks?.length
+                  {confirm.task.subtasks?.length
                     ? ` — with ${confirm.task.subtasks.length} fresh subtask${confirm.task.subtasks.length === 1 ? '' : 's'}`
                     : ''}.
                   {confirm.task.kind === 'event'

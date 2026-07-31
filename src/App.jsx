@@ -272,7 +272,10 @@ export default function App() {
       .slice(0, 25)
     const rosterItems = [
       ...rosterTasks.map(t => ({ ...t, kind: 'task' })),
-      ...rosterEvents.map(e => ({ ...e, kind: 'event' })),
+      // Carry each block's checklist along — an event's subtasks live in its
+      // notes row, not on the event, so they have to be attached here or a
+      // duplicate arrives empty.
+      ...rosterEvents.map(e => ({ ...e, kind: 'event', subtasks: eventNotes[e.id]?.subtasks || [] })),
     ]
     const roster = rosterItems.map((it, i) => ({
       ref: i, kind: it.kind, title: it.title, date: it.date, time: it.time,
@@ -358,13 +361,17 @@ export default function App() {
     // A calendar event can't be copied onto Google (calendar is read-only), so it
     // lands as a Day Ahead task on the target day — same title, same time, and
     // editable, which is what "put it on Tuesday" actually means in practice.
+    const newSubId = () =>
+      (crypto?.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`)
     const created = task?.kind === 'event'
       ? await addTask({
           title: task.title,
           date: date ?? task.date,
           time: time ?? task.time,
           duration: task.duration || 30,
-          subtasks: [],
+          // Fresh, unchecked copies of the block's checklist — same behaviour as
+          // duplicating a task.
+          subtasks: (task.subtasks || []).map(s => ({ id: newSubId(), title: s.title, done: false })),
         })
       : await duplicateTask(task, date, time)
     if (created?.date) {
