@@ -88,9 +88,9 @@ Deno.serve(async (req) => {
   // echoes the ref back, so task ids never round-trip through the model.
   // Includes recently-completed ones, marked (done) — they're duplicatable.
   const roster = (Array.isArray(tasks) ? tasks : [])
-    .slice(0, 60)
+    .slice(0, 90)
     .map((t: any) =>
-      `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.completed ? ' (done)' : ''}`)
+      `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.completed ? ' (done)' : ''}${t.kind === 'event' ? ' (calendar event)' : ''}`)
     .join('\n')
 
   const system = `You are the A.I. assistant inside Day Ahead, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
@@ -108,6 +108,7 @@ His current tasks are listed with [n] refs; ones marked (done) are already compl
 Rules:
 - Matching is FORGIVING: case-insensitive, partial names, small typos. "soundbetter" matches "SoundBetter Project"; "the monarch thing" matches "Fix Monarch". Capitalization is never a reason to fail a match. Only use "none" when two genuinely DIFFERENT tasks fit equally well.
 - Tasks marked (done) can still be duplicated — "do it again tomorrow" right after finishing something is common. Never pick a (done) task for update or complete.
+- Entries marked (calendar event) come from his Google Calendar. They ARE part of his schedule, so match them like anything else — but they're read-only here. You may return one for "duplicate" (a task copy gets created on the target day; say so in the note, e.g. "Adds 'Client Work' as a task on Tuesday"). NEVER return a (calendar event) for update or complete — for those, use intent "none" and say it's a calendar event that has to be changed in Google Calendar.
 - If the note says "my X task" (or clearly names a listed task), the intent is NEVER "create" — it's update, duplicate, or complete.
 - Resolve dates ONLY from the Date reference list — copy the exact YYYY-MM-DD, never compute one. "today" = the first row, "tomorrow" = the second. A weekday like "Friday" = the SOONEST row with that weekday; "next Friday" = the row after that. "the 15th" = the row whose date ends in -15. If nothing matches, use "".
 - Times are 12-hour and MUST include AM or PM — never a bare "2:30". A bare number ("push it to 4") means the sensible clock reading for that task — an afternoon task moved "to 4" means 4:00 PM.

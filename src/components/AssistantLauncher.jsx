@@ -196,11 +196,15 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
                 <p className="text-xs text-muted">Will be marked complete.</p>
               ) : confirm.intent === 'duplicate' ? (
                 <p className="text-xs text-muted">
-                  A copy will be added on <span className="text-fg">{prettyDate(confirm.date ?? confirm.task.date)}</span>
+                  {confirm.task.kind === 'event' ? 'Will be added as a task on ' : 'A copy will be added on '}
+                  <span className="text-fg">{prettyDate(confirm.date ?? confirm.task.date)}</span>
                   {' '}at <span className="text-fg">{confirm.time || confirm.task.time || 'anytime'}</span>
-                  {confirm.task.subtasks?.length
+                  {confirm.task.kind !== 'event' && confirm.task.subtasks?.length
                     ? ` — with ${confirm.task.subtasks.length} fresh subtask${confirm.task.subtasks.length === 1 ? '' : 's'}`
-                    : ''}. The original stays where it is.
+                    : ''}.
+                  {confirm.task.kind === 'event'
+                    ? ' Your Google Calendar isn’t touched.'
+                    : ' The original stays where it is.'}
                 </p>
               ) : (
                 <>

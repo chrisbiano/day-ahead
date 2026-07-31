@@ -262,9 +262,21 @@ export default function App() {
       .filter(t => !t.seriesId || bySeries.get(t.seriesId) === t)
       .sort((a, b) => dist(a.date) - dist(b.date))
       .slice(0, 60)
-    const roster = rosterTasks.map((t, i) => ({
-      ref: i, title: t.title, date: t.date, time: t.time, durationMin: t.duration,
-      completed: t.completed,
+    // Calendar events go in too. They're read-only (we never write to Google),
+    // but the assistant has to KNOW they exist — asking it to duplicate one used
+    // to fail with "no such task", which is true but useless, because events were
+    // simply invisible to it. Limited to the range currently loaded on screen.
+    const rosterEvents = (events ?? [])
+      .filter(e => e.title)
+      .sort((a, b) => dist(a.date) - dist(b.date))
+      .slice(0, 25)
+    const rosterItems = [
+      ...rosterTasks.map(t => ({ ...t, kind: 'task' })),
+      ...rosterEvents.map(e => ({ ...e, kind: 'event' })),
+    ]
+    const roster = rosterItems.map((it, i) => ({
+      ref: i, kind: it.kind, title: it.title, date: it.date, time: it.time,
+      durationMin: it.duration, completed: it.kind === 'task' ? it.completed : false,
     }))
     // Precompute the local calendar so the model looks dates up instead of
     // calculating them — "what date is Friday?" is exactly the arithmetic LLMs
@@ -297,7 +309,7 @@ export default function App() {
       return { intent: 'create', title: p.title, date: p.date, time: p.time, durationMin: p.durationMin, subtasks: p.subtasks || [], reminder: p.reminder, note: '', task: null }
     }
     const c = data.command
-    const src = c.taskRef >= 0 ? (rosterTasks[c.taskRef] ?? null) : null
+    const src = c.taskRef >= 0 ? (rosterItems[c.taskRef] ?? null) : null
     // Defensive time hygiene, whatever the model emitted: canonical AM/PM form,
     // and a duplicate whose time matches the source's clock reading (meridiem
     // aside) means "same time" — drop it so the original's time is kept.
@@ -343,7 +355,18 @@ export default function App() {
   // is visibly there instead of seeming to vanish. Returns the created task so
   // the caller can await it and surface any failure.
   const handleDuplicate = async (task, date, time) => {
-    const created = await duplicateTask(task, date, time)
+    // A calendar event can't be copied onto Google (calendar is read-only), so it
+    // lands as a Day Ahead task on the target day — same title, same time, and
+    // editable, which is what "put it on Tuesday" actually means in practice.
+    const created = task?.kind === 'event'
+      ? await addTask({
+          title: task.title,
+          date: date ?? task.date,
+          time: time ?? task.time,
+          duration: task.duration || 30,
+          subtasks: [],
+        })
+      : await duplicateTask(task, date, time)
     if (created?.date) {
       setSelectedDate(new Date(`${created.date}T00:00:00`))
       setView('day')
