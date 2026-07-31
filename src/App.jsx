@@ -23,6 +23,50 @@ import UndoToast from './components/UndoToast'
 import useMorningBrief from './hooks/useMorningBrief'
 
 const SETTINGS_KEY = 'sentinel.settings.v1'
+
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+/* Resolve a weekday the user named, in code. The model is handed a calendar table
+   and STILL drifts on compound phrasing — "Tuesday of next week" came back as the
+   Wednesday. A date is arithmetic, so we do the arithmetic and overrule it.
+
+   Only fires when the target day is unambiguous:
+   - a weekday right after a direction word ("into Tuesday", "to Friday"), or
+   - for create/duplicate, a single weekday anywhere in the sentence.
+   "push my Tuesday meeting to 4pm" names a weekday that is NOT the target, which
+   is why the bare-weekday case is limited to intents that are setting a day. */
+function resolveWeekdayDate(text, todayISO, intent) {
+  const s = String(text || '').toLowerCase()
+  const named = WEEKDAYS.filter(w => new RegExp(`\\b${w}s?\\b`).test(s))
+  if (named.length === 0) return null
+
+  const directed = s.match(
+    new RegExp(`\\b(?:to|on|for|into|until|till)\\s+(?:next\\s+|the\\s+)?(${WEEKDAYS.join('|')})\\b`),
+  )
+  let day = directed?.[1]
+  if (!day) {
+    if (named.length !== 1) return null                       // two weekdays, genuinely ambiguous
+    if (intent !== 'duplicate' && intent !== 'create') return null
+    day = named[0]
+  }
+
+  const target = WEEKDAYS.indexOf(day)
+  const base = new Date(`${todayISO}T00:00:00`)
+  const dow = base.getDay()
+  // "next week" means the week starting the coming Sunday — so "Tuesday of next
+  // week" on a Friday is that Sunday + 2, not simply "the next Tuesday".
+  const nextWeek = /\bnext\s+week\b/.test(s) || new RegExp(`\\bnext\\s+${day}\\b`).test(s)
+  let delta
+  if (nextWeek) {
+    delta = (7 - dow) + target
+  } else {
+    delta = (target - dow + 7) % 7
+    if (delta === 0) delta = 7                                // "Tuesday" said on a Tuesday = the next one
+  }
+  const d = new Date(base)
+  d.setDate(d.getDate() + delta)
+  return toISODate(d)
+}
 // theme: 'dark' | 'light' | 'auto'. Defaults to dark — the app has always been
 // dark, so an existing user's look never changes without them asking.
 const defaultSettings = { hideCompleted: false, theme: 'dark' }
@@ -321,7 +365,9 @@ export default function App() {
       const clock = (x) => String(x).replace(/\s*[AP]\.?M\.?$/i, '').trim()
       if (clock(time) === clock(src.time)) time = null
     }
-    return { ...c, time, task: src }
+    // A weekday the user named beats whatever the model worked out.
+    const weekdayDate = resolveWeekdayDate(text, todayISO, c.intent)
+    return { ...c, date: weekdayDate ?? c.date, time, task: src }
   }
 
   // Deleted subtasks from both stores — a task's own array and an event's notes —
