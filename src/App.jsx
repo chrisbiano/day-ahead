@@ -367,7 +367,25 @@ export default function App() {
     }
     // A weekday the user named beats whatever the model worked out.
     const weekdayDate = resolveWeekdayDate(text, todayISO, c.intent)
-    return { ...c, date: weekdayDate ?? c.date, time, task: src }
+    const finalDate = weekdayDate ?? c.date
+    // The note is the model's own prose, so it still quotes the date IT chose —
+    // which we may have just overruled, leaving the card contradicting itself.
+    // Rewrite any date it wrote (with the weekday it may have prefixed) to the
+    // date actually being used, in readable form instead of raw ISO.
+    let note = c.note || ''
+    if (note && finalDate) {
+      const pretty = new Date(`${finalDate}T00:00:00`).toLocaleDateString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric',
+      })
+      // Swallow a weekday sitting in front of the date — full or abbreviated —
+      // or "Tue, 2026-08-05" would come out as "Tue, Tue, Aug 4".
+      const DAY_WORD = `${WEEKDAYS.join('|')}|sun|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat`
+      note = note.replace(
+        new RegExp(`(?:\\b(?:${DAY_WORD})\\b\\.?,?\\s+)?\\d{4}-\\d{2}-\\d{2}`, 'gi'),
+        pretty,
+      )
+    }
+    return { ...c, date: finalDate, time, note, task: src }
   }
 
   // Deleted subtasks from both stores — a task's own array and an event's notes —
