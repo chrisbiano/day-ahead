@@ -4,7 +4,11 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import { startUpdater } from './lib/updater.js'
+import { startErrorLogging } from './lib/errorLog.js'
 import './index.css'
+
+// Before anything renders, so a crash during startup is still caught.
+startErrorLogging()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

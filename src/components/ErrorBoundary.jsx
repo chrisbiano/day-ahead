@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { reportError } from '../lib/errorLog'
 
 /* Catches render errors in any child so one broken component shows a
    recoverable fallback instead of white-screening the whole app. */
@@ -14,6 +15,8 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Day Ahead caught a render error:', error, info)
+    // File it, so a crash someone else hits doesn't depend on them reporting it.
+    reportError(error, 'render', { componentStack: String(info?.componentStack || '').slice(0, 2000) })
   }
 
   render() {
