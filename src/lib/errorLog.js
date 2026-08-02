@@ -52,6 +52,29 @@ export async function reportError(err, source = 'manual', context = null) {
   }
 }
 
+/* A problem someone reports in their own words. Crashes only cover things that
+   BREAK; this covers "that did the wrong thing", which is most of what actually
+   goes wrong. Unlike reportError this one THROWS on failure — the person is
+   watching and deserves to know it didn't send. */
+export async function submitReport(message) {
+  if (!isSupabaseConfigured) throw new Error('Not connected — reports need a signed-in account.')
+  const text = String(message || '').trim()
+  if (!text) throw new Error('Tell me what happened first.')
+
+  const { data } = await supabase.auth.getUser()
+  const uid = data?.user?.id
+  if (!uid) throw new Error('You need to be signed in to send a report.')
+
+  const { error } = await supabase.from('problem_reports').insert({
+    user_id: uid,
+    message: text.slice(0, 4000),
+    build: BUILD,
+    url: `${window.location.pathname}${window.location.search}`,
+    user_agent: navigator.userAgent,
+  })
+  if (error) throw new Error(error.message || 'Could not send that report.')
+}
+
 /* Catch what React's error boundary can't see: anything thrown outside render,
    and promises nobody awaited (a failed fetch, a rejected Supabase call). */
 export function startErrorLogging() {

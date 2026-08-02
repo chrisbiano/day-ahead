@@ -6,6 +6,7 @@ import {
   isPushConfigured, pushStatus, currentSubscription,
   enablePush, disablePush, sendTestPush, isIOS,
 } from '../lib/push'
+import { submitReport } from '../lib/errorLog'
 
 /* Turn Web Push on for this device, and prove it works with a test ping before
    any reminder depends on it. The iOS reality is baked in: on iPhone, push only
@@ -347,6 +348,70 @@ function XIcon() {
   )
 }
 
+/* "That did the wrong thing." Crash reporting only sees things that break, and
+   most product problems don't throw — they just behave badly. The build id, page
+   and browser ride along automatically, so a report is actionable without having
+   to go back and ask which version they were on. */
+function ReportProblem() {
+  const [text, setText] = useState('')
+  const [state, setState] = useState('idle')   // idle | sending | sent
+  const [error, setError] = useState(null)
+
+  const send = async () => {
+    setState('sending'); setError(null)
+    try {
+      await submitReport(text)
+      setState('sent')
+      setText('')
+    } catch (e) {
+      setState('idle')
+      setError(e.message || 'Could not send that.')
+    }
+  }
+
+  return (
+    <div className="border-t border-line pt-5">
+      <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">Report a problem</h3>
+      {state === 'sent' ? (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-fg">
+            Sent — thank you. What you were looking at and which version you're on came with it.
+          </p>
+          <button
+            onClick={() => setState('idle')}
+            className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
+          >
+            Send another
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-faint mb-2">
+            Something behaving oddly, or just confusing? Describe it in your own words.
+          </p>
+          <textarea
+            rows={3}
+            value={text}
+            onChange={e => { setText(e.target.value); setError(null) }}
+            placeholder="What happened, and what did you expect instead?"
+            className="input w-full text-sm resize-none"
+          />
+          {error && <p className="text-xs text-warn mt-1.5">{error}</p>}
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={send}
+              disabled={state === 'sending' || !text.trim()}
+              className="px-3 py-1.5 text-sm rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {state === 'sending' ? 'Sending…' : 'Send report'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Toggle({ checked, onChange }) {
   return (
     <button
@@ -639,6 +704,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
               )}
             </div>
           )}
+
+          {isSupabaseConfigured && <ReportProblem />}
         </div>
 
         <div className="px-5 py-3 border-t border-line text-xs text-faint">
