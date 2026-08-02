@@ -86,9 +86,15 @@ can serve you a stale one — that combination has lied to us more than once. Us
 the build id:
 
 ```bash
+# BEFORE pushing, note what's currently live:
 curl -s https://sentinel-pied-sigma.vercel.app/version.json
-cat dist/version.json          # after a local `npm run build`
+# then push, and watch that number CHANGE.
 ```
+
+Compare against the id you captured *before* the push — not against a fresh local
+`npm run build`. A local build stamps itself with the current time, so it will
+always look newer than the server and you'll wait forever for a deploy that
+already landed.
 
 If the served id doesn't move within a few minutes, **the deploy never happened**
 — GitHub's webhook to Vercel occasionally skips a push silently. Nudge it:
