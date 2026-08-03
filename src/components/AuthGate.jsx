@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import Login from './Login'
+import Landing from './Landing'
 
 /* Gates the app behind Google sign-in when Supabase is configured.
    Without env vars, falls through to the app (local-only mode). */
@@ -25,7 +25,9 @@ export default function AuthGate({ children }) {
     )
   }
 
-  if (!session) return <Login />
+  // Signed out, you get the public page rather than a bare sign-in card — it's
+  // also what Google's OAuth reviewer loads when they check the homepage.
+  if (!session) return <Landing />
 
   return children
 }
