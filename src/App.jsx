@@ -321,9 +321,13 @@ export default function App() {
       // duplicate arrives empty.
       ...rosterEvents.map(e => ({ ...e, kind: 'event', subtasks: eventNotes[e.id]?.subtasks || [] })),
     ]
+    // subtaskCount, not the titles: the model only needs to know a checklist
+    // EXISTS and how big it is — the app copies the real subtasks itself. Sending
+    // every title would bloat the prompt and invite it to invent them.
     const roster = rosterItems.map((it, i) => ({
       ref: i, kind: it.kind, title: it.title, date: it.date, time: it.time,
       durationMin: it.duration, completed: it.kind === 'task' ? it.completed : false,
+      subtaskCount: (it.subtasks || []).length,
     }))
     // Precompute the local calendar so the model looks dates up instead of
     // calculating them — "what date is Friday?" is exactly the arithmetic LLMs
@@ -357,6 +361,8 @@ export default function App() {
     }
     const c = data.command
     const src = c.taskRef >= 0 ? (rosterItems[c.taskRef] ?? null) : null
+    // copySubtasks needs a second item: the one the checklist lands on.
+    const target = c.targetRef >= 0 ? (rosterItems[c.targetRef] ?? null) : null
     // Defensive time hygiene, whatever the model emitted: canonical AM/PM form,
     // and a duplicate whose time matches the source's clock reading (meridiem
     // aside) means "same time" — drop it so the original's time is kept.
@@ -385,7 +391,36 @@ export default function App() {
         pretty,
       )
     }
-    return { ...c, date: finalDate, time, note, task: src }
+    return { ...c, date: finalDate, time, note, task: src, target }
+  }
+
+  // "Take my subtasks from X and add them to Y." The model only picks the two
+  // items; the real checklist is copied here, from whichever store owns it (a
+  // task's own array, or an event's notes row). Copies are fresh and unchecked,
+  // and the source keeps its own.
+  const handleCopySubtasks = async (source, target) => {
+    if (!source || !target) return
+    const newSubId = () =>
+      (crypto?.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`)
+    const copies = (source.subtasks || [])
+      .filter(s => !s.deletedAt)
+      .map(s => ({ id: newSubId(), title: s.title, done: false }))
+    if (copies.length === 0) return
+
+    const existing = (target.subtasks || []).filter(s => !s.deletedAt)
+    if (target.kind === 'event') {
+      setEventSubtasks(
+        { id: target.id, title: target.title, date: target.date, time: target.time },
+        [...existing, ...copies],
+      )
+    } else {
+      await updateTask(target.id, { subtasks: [...existing, ...copies] })
+    }
+
+    if (target.date) { setSelectedDate(new Date(`${target.date}T00:00:00`)); setView('day') }
+    setHighlightTaskId(target.kind === 'task' ? target.id : null)
+    setTimeout(() => scrollToSection('schedule-section'), 80)
+    setTimeout(() => setHighlightTaskId(null), 3000)
   }
 
   // Deleted subtasks from both stores — a task's own array and an event's notes —
@@ -703,6 +738,7 @@ export default function App() {
         onUpdate={updateTask}
         onComplete={toggleComplete}
         onDuplicate={handleDuplicate}
+        onCopySubtasks={handleCopySubtasks}
         defaultDate={selectedISO}
       />
 

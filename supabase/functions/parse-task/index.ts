@@ -44,10 +44,11 @@ const SCHEMA = {
   type: 'object',
   properties: {
     intent: {
-      type: 'string', enum: ['create', 'update', 'complete', 'duplicate', 'none'],
-      description: 'create a new task; update an existing task; complete (check off) an existing task; duplicate an existing task onto another day/time; none if nothing actionable or the match is too ambiguous',
+      type: 'string', enum: ['create', 'update', 'complete', 'duplicate', 'copySubtasks', 'none'],
+      description: 'create a new task; update an existing task; complete (check off) an existing task; duplicate an existing task onto another day/time; copySubtasks to copy one item\'s checklist onto another; none if nothing actionable or the match is too ambiguous',
     },
-    taskRef: { type: 'integer', description: 'For update/complete/duplicate: the [n] ref of the matched task. -1 otherwise.' },
+    taskRef: { type: 'integer', description: 'For update/complete/duplicate: the [n] ref of the matched task. For copySubtasks: the ref of the SOURCE, the one the subtasks come FROM. -1 otherwise.' },
+    targetRef: { type: 'integer', description: 'For copySubtasks only: the [n] ref of the DESTINATION, the one the subtasks are added TO. -1 otherwise.' },
     title: { type: 'string', description: 'create: concise task title, no date/time in it. update: a NEW title only if he asked to rename, else "".' },
     date: { type: 'string', description: 'YYYY-MM-DD. create: "" if no date implied. update: the new date only if it changes, else "". duplicate: the target day the copy lands on.' },
     time: { type: 'string', description: '12-hour like "4:00 PM". create: "" if none. update: the new start time only if it changes, else "". duplicate: "" to keep the original\'s time, or the new time.' },
@@ -59,7 +60,7 @@ const SCHEMA = {
       description: `One short sentence saying exactly what will happen ("Move 'Rough cut' to Friday 2:00 PM"), or for none: why nothing matched.`,
     },
   },
-  required: ['intent', 'taskRef', 'title', 'date', 'time', 'durationMin', 'subtasks', 'reminder', 'note'],
+  required: ['intent', 'taskRef', 'targetRef', 'title', 'date', 'time', 'durationMin', 'subtasks', 'reminder', 'note'],
   additionalProperties: false,
 }
 
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
   const roster = (Array.isArray(tasks) ? tasks : [])
     .slice(0, 90)
     .map((t: any) =>
-      `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.completed ? ' (done)' : ''}${t.kind === 'event' ? ' (calendar event)' : ''}`)
+      `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.subtaskCount ? ` — ${t.subtaskCount} subtask${t.subtaskCount === 1 ? '' : 's'}` : ''}${t.completed ? ' (done)' : ''}${t.kind === 'event' ? ' (calendar event)' : ''}`)
     .join('\n')
 
   const system = `You are the A.I. assistant inside Day Ahead, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
@@ -102,11 +103,13 @@ His current tasks are listed with [n] refs; ones marked (done) are already compl
 - "update" — the note changes an existing task IN PLACE: move / push / reschedule / retime / rename / change duration. The same task ends up somewhere else. Match by title words and context (a time like "my 2pm edit" narrows it). Return its taskRef and ONLY the fields that change; leave the rest "" (or 0 for durationMin).
 - "duplicate" — the note wants an existing task AGAIN, keeping the original: "add my X from today to tomorrow as well", "same thing again Friday", "copy it to next week", "do it again at 4". Words like also / as well / too / again / copy mean duplicate, not update. Return its taskRef, the target date, and time "" to keep the original's time (or the new time if he gives one). The copy carries the original's duration and subtasks automatically — don't restate them.
 - "complete" — the note says an existing task is done / finished / handled / to check off. Return its taskRef.
+- "copySubtasks" — the note wants one item's CHECKLIST put onto another item: "take my subtasks from X and add them to Y", "give Y the same steps as X", "copy the checklist from X to Y". Return taskRef = the SOURCE (where the subtasks come FROM) and targetRef = the DESTINATION (where they go TO). Getting those two the right way round is the whole job. Don't list the subtasks — the app copies the real ones. The source keeps its own copy.
 - "create" — the note describes a NEW task that doesn't refer to any listed one.
 - "none" — nothing actionable, or two or more tasks match equally well. Never guess between plausible matches: say in note which ones were ambiguous so he can be specific.
 
 Rules:
 - Matching is FORGIVING: case-insensitive, partial names, small typos. "soundbetter" matches "SoundBetter Project"; "the monarch thing" matches "Fix Monarch". Capitalization is never a reason to fail a match. Only use "none" when two genuinely DIFFERENT tasks fit equally well.
+- A roster line ending "— N subtasks" HAS a checklist of that size. If a copySubtasks source shows no subtask count, it genuinely has none — say so rather than inventing a transfer.
 - Tasks marked (done) can still be duplicated — "do it again tomorrow" right after finishing something is common. Never pick a (done) task for update or complete.
 - Entries marked (calendar event) come from his Google Calendar. They ARE part of his schedule, so match them like anything else — but they're read-only here. You may return one for "duplicate" (a task copy gets created on the target day; say so in the note, e.g. "Adds 'Client Work' as a task on Tuesday"). NEVER return a (calendar event) for update or complete — for those, use intent "none" and say it's a calendar event that has to be changed in Google Calendar.
 - If the note says "my X task" (or clearly names a listed task), the intent is NEVER "create" — it's update, duplicate, or complete.
