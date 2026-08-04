@@ -379,7 +379,8 @@ export default function TaskForm({ initial, defaultDate, onSave, onCancel }) {
               value={s.title}
               onChange={e => updateSubtask(s.id, e.target.value)}
               placeholder="Subtask"
-              className="input flex-1 py-1.5"
+              size={1}
+              className="input flex-1 min-w-0 w-0 py-1.5"
             />
             <button
               type="button"

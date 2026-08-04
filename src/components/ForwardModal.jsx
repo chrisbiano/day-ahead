@@ -160,7 +160,7 @@ export default function ForwardModal({ email, onClose, onSent }) {
             <input
               value={subject}
               onChange={e => setSubject(e.target.value)}
-              className="input flex-1 py-1 text-sm"
+              className="input flex-1 min-w-0 py-1 text-sm"
             />
           </div>
         </div>

@@ -549,18 +549,23 @@ export default function Timeline({
                 if (e.key === 'Enter') submitSubtask(item)
                 if (e.key === 'Escape') { setDraft(''); setAddingFor(null) }
               }}
-              placeholder="What needs doing in this block?"
-              className="input flex-1 py-1 text-xs"
+              placeholder="What needs doing?"
+              // size={1} + min-w-0 + w-0: iOS Safari gives an input a stubborn
+              // intrinsic width (driven by the placeholder), and flex-1 alone
+              // won't shrink past it — which pushed Add and Cancel off the right
+              // edge of the phone. Same fix the inline edit fields needed.
+              size={1}
+              className="input flex-1 min-w-0 w-0 py-1 text-xs"
             />
             <button
               onClick={() => submitSubtask(item)}
-              className="text-xs px-2 py-1 rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity"
+              className="shrink-0 text-xs px-2.5 py-1 rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity"
             >
               Add
             </button>
             <button
               onClick={() => { setDraft(''); setAddingFor(null) }}
-              className="text-xs text-faint hover:text-fg transition-colors"
+              className="shrink-0 text-xs text-faint hover:text-fg transition-colors"
             >
               Cancel
             </button>

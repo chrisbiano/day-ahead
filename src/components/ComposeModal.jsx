@@ -215,7 +215,7 @@ export default function ComposeModal({ email, onClose, onSent }) {
                 <input
                   value={to}
                   onChange={e => setTo(e.target.value)}
-                  className="input flex-1 py-1 text-sm"
+                  className="input flex-1 min-w-0 py-1 text-sm"
                 />
               </div>
 
@@ -245,7 +245,7 @@ export default function ComposeModal({ email, onClose, onSent }) {
                       <input
                         value={cc}
                         onChange={e => setCc(e.target.value)}
-                        className="input flex-1 py-1 text-sm"
+                        className="input flex-1 min-w-0 py-1 text-sm"
                       />
                     </div>
                   )}
@@ -257,7 +257,7 @@ export default function ComposeModal({ email, onClose, onSent }) {
                 <input
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
-                  className="input flex-1 py-1 text-sm"
+                  className="input flex-1 min-w-0 py-1 text-sm"
                 />
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function ComposeModal({ email, onClose, onSent }) {
                     onChange={e => setIntent(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); draft() } }}
                     placeholder="Tell the AI what to say — e.g. “yes, Tuesday works”"
-                    className="input flex-1 py-1.5 text-sm"
+                    className="input flex-1 min-w-0 py-1.5 text-sm"
                   />
                   <button
                     onClick={draft}
