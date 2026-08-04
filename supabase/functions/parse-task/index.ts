@@ -44,8 +44,9 @@ const SCHEMA = {
   type: 'object',
   properties: {
     intent: {
-      type: 'string', enum: ['create', 'update', 'complete', 'duplicate', 'copySubtasks', 'none'],
-      description: 'create a new task; update an existing task; complete (check off) an existing task; duplicate an existing task onto another day/time; copySubtasks to copy one item\'s checklist onto another; none if nothing actionable or the match is too ambiguous',
+      type: 'string',
+      enum: ['create', 'update', 'complete', 'duplicate', 'copySubtasks', 'addSubtasks', 'delete', 'reminder', 'none'],
+      description: 'create a new task; update an existing task; complete (check off) an existing task; duplicate an existing task onto another day/time; copySubtasks to copy one item\'s checklist onto another; addSubtasks to add new checklist items to an existing one; delete an existing task; reminder to turn a task\'s reminder on or off; none if nothing actionable or the match is too ambiguous',
     },
     taskRef: { type: 'integer', description: 'For update/complete/duplicate: the [n] ref of the matched task. For copySubtasks: the ref of the SOURCE, the one the subtasks come FROM. -1 otherwise.' },
     targetRef: { type: 'integer', description: 'For copySubtasks only: the [n] ref of the DESTINATION, the one the subtasks are added TO. -1 otherwise.' },
@@ -53,14 +54,15 @@ const SCHEMA = {
     date: { type: 'string', description: 'YYYY-MM-DD. create: "" if no date implied. update: the new date only if it changes, else "". duplicate: the target day the copy lands on.' },
     time: { type: 'string', description: '12-hour like "4:00 PM". create: "" if none. update: the new start time only if it changes, else "". duplicate: "" to keep the original\'s time, or the new time.' },
     durationMin: { type: 'integer', description: 'Minutes. create: what he said, else 30. update: the new duration only if it changes, else 0.' },
-    subtasks: { type: 'array', items: { type: 'string' }, description: 'create only: short subtask titles if steps were listed, else []' },
-    reminder: { type: 'boolean', description: 'create only: true only if a reminder/alert was requested' },
+    subtasks: { type: 'array', items: { type: 'string' }, description: 'create: short subtask titles if steps were listed. addSubtasks: the new checklist items to append. Otherwise [].' },
+    reminder: { type: 'boolean', description: 'create: true only if a reminder was requested. reminder intent: true to switch it ON, false to switch it OFF.' },
+    reminderLeadMin: { type: 'integer', description: 'reminder intent only: minutes before the start time to fire ("30 minutes before" = 30). 0 if unspecified.' },
     note: {
       type: 'string',
       description: `One short sentence saying exactly what will happen ("Move 'Rough cut' to Friday 2:00 PM"), or for none: why nothing matched.`,
     },
   },
-  required: ['intent', 'taskRef', 'targetRef', 'title', 'date', 'time', 'durationMin', 'subtasks', 'reminder', 'note'],
+  required: ['intent', 'taskRef', 'targetRef', 'title', 'date', 'time', 'durationMin', 'subtasks', 'reminder', 'reminderLeadMin', 'note'],
   additionalProperties: false,
 }
 
@@ -91,7 +93,17 @@ Deno.serve(async (req) => {
   const roster = (Array.isArray(tasks) ? tasks : [])
     .slice(0, 90)
     .map((t: any) =>
-      `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}${t.subtaskCount ? ` — ${t.subtaskCount} subtask${t.subtaskCount === 1 ? '' : 's'}` : ''}${t.completed ? ' (done)' : ''}${t.kind === 'event' ? ' (calendar event)' : ''}`)
+      [
+        `[${t.ref}] "${t.title}" — ${t.date || 'no date'}${t.time ? ` ${t.time}` : ' (anytime)'}${t.durationMin ? ` (${t.durationMin} min)` : ''}`,
+        t.completed ? ' (done)' : '',
+        t.kind === 'event' ? ' (calendar event)' : '',
+        t.repeats ? ' (repeats)' : '',
+        t.hasReminder ? ` (reminder ON${t.reminderLeadMin ? `, ${t.reminderLeadMin} min before` : ''})` : ' (reminder off)',
+        // The actual checklist, so it can act on a named step rather than guess.
+        Array.isArray(t.subtasks) && t.subtasks.length
+          ? `\n      subtasks: ${t.subtasks.map((s: any) => `${s.done ? '[x]' : '[ ]'} ${s.title}`).join(' | ')}${t.subtaskCount > t.subtasks.length ? ` (+${t.subtaskCount - t.subtasks.length} more)` : ''}`
+          : '',
+      ].join(''))
     .join('\n')
 
   const system = `You are the A.I. assistant inside Day Ahead, Chris's daily command center. Turn his note into exactly ONE structured command. Today is ${today || '(unknown)'}${weekday ? ` (${weekday})` : ''}${nowTime ? `, current time ${nowTime}` : ''}, in his local timezone.
@@ -104,12 +116,16 @@ His current tasks are listed with [n] refs; ones marked (done) are already compl
 - "duplicate" — the note wants an existing task AGAIN, keeping the original: "add my X from today to tomorrow as well", "same thing again Friday", "copy it to next week", "do it again at 4". Words like also / as well / too / again / copy mean duplicate, not update. Return its taskRef, the target date, and time "" to keep the original's time (or the new time if he gives one). The copy carries the original's duration and subtasks automatically — don't restate them.
 - "complete" — the note says an existing task is done / finished / handled / to check off. Return its taskRef.
 - "copySubtasks" — the note wants one item's CHECKLIST put onto another item: "take my subtasks from X and add them to Y", "give Y the same steps as X", "copy the checklist from X to Y". Return taskRef = the SOURCE (where the subtasks come FROM) and targetRef = the DESTINATION (where they go TO). Getting those two the right way round is the whole job. Don't list the subtasks — the app copies the real ones. The source keeps its own copy.
+- "addSubtasks" — the note adds NEW checklist steps to something that already exists: "add 'export masters' to my edit block", "put 'call the venue' on Friday's prep". Return taskRef and the new step titles in subtasks. This ADDS to the existing checklist; it never replaces it.
+- "delete" — the note wants an existing task GONE: delete / remove / get rid of / cancel / scrap it. Return its taskRef. Not the same as complete: complete means finished, delete means it shouldn't be there at all.
+- "reminder" — the note turns a task's reminder on or off, or changes its lead time: "remind me about the edit", "30 minutes before", "turn off the reminder on my 2pm". Return taskRef, reminder true (on) or false (off), and reminderLeadMin when a lead time is stated. Each roster line says whether its reminder is currently on.
 - "create" — the note describes a NEW task that doesn't refer to any listed one.
 - "none" — nothing actionable, or two or more tasks match equally well. Never guess between plausible matches: say in note which ones were ambiguous so he can be specific.
 
 Rules:
 - Matching is FORGIVING: case-insensitive, partial names, small typos. "soundbetter" matches "SoundBetter Project"; "the monarch thing" matches "Fix Monarch". Capitalization is never a reason to fail a match. Only use "none" when two genuinely DIFFERENT tasks fit equally well.
-- A roster line ending "— N subtasks" HAS a checklist of that size. If a copySubtasks source shows no subtask count, it genuinely has none — say so rather than inventing a transfer.
+- A roster line's "subtasks:" list is the REAL checklist — [x] done, [ ] not. Use it to answer questions about steps, and to pick the right item. If a copySubtasks source shows no subtasks, it genuinely has none — say so rather than inventing a transfer.
+- Calendar events can't be deleted or given reminders here (the calendar is read-only). If he asks for either on a (calendar event), use "none" and say it has to change in Google Calendar.
 - Tasks marked (done) can still be duplicated — "do it again tomorrow" right after finishing something is common. Never pick a (done) task for update or complete.
 - Entries marked (calendar event) come from his Google Calendar. They ARE part of his schedule, so match them like anything else — but they're read-only here. You may return one for "duplicate" (a task copy gets created on the target day; say so in the note, e.g. "Adds 'Client Work' as a task on Tuesday"). NEVER return a (calendar event) for update or complete — for those, use intent "none" and say it's a calendar event that has to be changed in Google Calendar.
 - If the note says "my X task" (or clearly names a listed task), the intent is NEVER "create" — it's update, duplicate, or complete.
@@ -164,6 +180,7 @@ Example: "add my soundbetter task from today to tomorrow as well at the same tim
         durationMin: Number(p.durationMin) || 0,
         subtasks: Array.isArray(p.subtasks) ? p.subtasks.filter(Boolean) : [],
         reminder: Boolean(p.reminder),
+        reminderLeadMin: Number.isInteger(p.reminderLeadMin) ? p.reminderLeadMin : 0,
         note: p.note || '',
       },
     })

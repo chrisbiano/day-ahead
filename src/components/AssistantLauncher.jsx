@@ -21,7 +21,10 @@ const prettyDate = (iso) => {
    2pm edit to 4", "rough cut is done") and it proposes the change. Nothing is
    ever applied without a tap: create opens the pre-filled form, update/complete
    show a confirm card. */
-export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComplete, onDuplicate, onCopySubtasks, defaultDate }) {
+export default function AssistantLauncher({
+  onCommand, onAdd, onUpdate, onComplete, onDuplicate, onCopySubtasks,
+  onAddSubtasks, onAssistantDelete, onSetReminder, defaultDate,
+}) {
   const [open, setOpen] = useState(false)       // the text box is open
   const [text, setText] = useState('')
   const [parsing, setParsing] = useState(false)
@@ -49,6 +52,9 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
         })
         setOpen(false)
       } else if (c.intent === 'copySubtasks' && c.task && c.target) {
+        setConfirm(c)
+        setOpen(false)
+      } else if ((c.intent === 'addSubtasks' || c.intent === 'delete' || c.intent === 'reminder') && c.task) {
         setConfirm(c)
         setOpen(false)
       } else if ((c.intent === 'update' || c.intent === 'complete' || c.intent === 'duplicate') && c.task) {
@@ -89,6 +95,12 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
         await onComplete(c.task.id)
       } else if (c.intent === 'copySubtasks') {
         await onCopySubtasks(c.task, c.target)
+      } else if (c.intent === 'addSubtasks') {
+        await onAddSubtasks(c.task, c.subtasks)
+      } else if (c.intent === 'delete') {
+        await onAssistantDelete(c.task)
+      } else if (c.intent === 'reminder') {
+        await onSetReminder(c.task, c.reminder, c.reminderLeadMin)
       } else if (c.intent === 'duplicate') {
         // Full copy — duration, reminder settings, fresh subtasks — onto the
         // target day, keeping the original's time unless a new one was given.
@@ -221,6 +233,28 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
               <p className="text-sm font-medium text-fg">{confirm.task.title}</p>
               {confirm.intent === 'complete' ? (
                 <p className="text-xs text-muted">Will be marked complete.</p>
+              ) : confirm.intent === 'delete' ? (
+                <p className="text-xs text-muted">
+                  Will be deleted. It goes to <span className="text-fg">Deleted today</span>, so you can put it back.
+                </p>
+              ) : confirm.intent === 'addSubtasks' ? (
+                <div className="text-xs text-muted">
+                  <p className="mb-1">These get added to its checklist:</p>
+                  <ul className="space-y-0.5">
+                    {(confirm.subtasks || []).map((s, i) => (
+                      <li key={i} className="text-fg">· {s}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : confirm.intent === 'reminder' ? (
+                <p className="text-xs text-muted">
+                  {confirm.reminder
+                    ? <>Reminder <span className="text-fg">on</span>
+                        {confirm.reminderLeadMin > 0
+                          ? <>, <span className="text-fg">{confirm.reminderLeadMin} min before</span> it starts.</>
+                          : <> at its start time.</>}</>
+                    : <>Reminder <span className="text-fg">off</span> — it won't buzz.</>}
+                </p>
               ) : confirm.intent === 'copySubtasks' ? (
                 <p className="text-xs text-muted">
                   {(confirm.task.subtasks || []).filter(s => !s.deletedAt).length} subtask
@@ -273,6 +307,9 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
                   : confirm.intent === 'complete' ? 'Mark done'
                   : confirm.intent === 'duplicate' ? 'Add copy'
                   : confirm.intent === 'copySubtasks' ? 'Copy subtasks'
+                  : confirm.intent === 'addSubtasks' ? 'Add steps'
+                  : confirm.intent === 'delete' ? 'Delete'
+                  : confirm.intent === 'reminder' ? (confirm.reminder ? 'Set reminder' : 'Turn off')
                   : 'Apply'}
               </button>
             </div>

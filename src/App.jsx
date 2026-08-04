@@ -321,13 +321,21 @@ export default function App() {
       // duplicate arrives empty.
       ...rosterEvents.map(e => ({ ...e, kind: 'event', subtasks: eventNotes[e.id]?.subtasks || [] })),
     ]
-    // subtaskCount, not the titles: the model only needs to know a checklist
-    // EXISTS and how big it is — the app copies the real subtasks itself. Sending
-    // every title would bloat the prompt and invite it to invent them.
+    // Subtask TITLES now, not just a count — without them it can't act on "check
+    // off the export step". Capped and trimmed so a long checklist can't crowd
+    // out the rest of the roster. Reminder and repeat state ride along too: both
+    // were invisible, so it couldn't answer or change either.
     const roster = rosterItems.map((it, i) => ({
       ref: i, kind: it.kind, title: it.title, date: it.date, time: it.time,
       durationMin: it.duration, completed: it.kind === 'task' ? it.completed : false,
-      subtaskCount: (it.subtasks || []).length,
+      subtasks: (it.subtasks || [])
+        .filter(s => !s.deletedAt)
+        .slice(0, 8)
+        .map(s => ({ title: String(s.title || '').slice(0, 60), done: Boolean(s.done) })),
+      subtaskCount: (it.subtasks || []).filter(s => !s.deletedAt).length,
+      hasReminder: it.kind === 'task' ? Boolean(it.hasReminder) : false,
+      reminderLeadMin: it.kind === 'task' ? (it.reminderLeadMin || 0) : 0,
+      repeats: it.kind === 'task' ? Boolean(it.seriesId) : false,
     }))
     // Precompute the local calendar so the model looks dates up instead of
     // calculating them — "what date is Friday?" is exactly the arithmetic LLMs
@@ -392,6 +400,65 @@ export default function App() {
       )
     }
     return { ...c, date: finalDate, time, note, task: src, target }
+  }
+
+  // Append new subtasks to something that already exists. Handles either store —
+  // a task's own array, or a calendar block's notes row.
+  const handleAddSubtasks = async (target, titles) => {
+    const clean = (titles || []).map(t => String(t || '').trim()).filter(Boolean)
+    if (!target || clean.length === 0) throw new Error('Nothing to add.')
+    const newSubId = () =>
+      (crypto?.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`)
+    const additions = clean.map(t => ({ id: newSubId(), title: t, done: false }))
+    const existing = (target.subtasks || []).filter(s => !s.deletedAt)
+
+    if (target.kind === 'event') {
+      setEventSubtasks(
+        { id: target.id, title: target.title, date: target.date, time: target.time },
+        [...existing, ...additions],
+      )
+    } else {
+      await updateTask(target.id, { subtasks: [...existing, ...additions] })
+    }
+    focusOn(target)
+  }
+
+  // Delete by voice. Soft, like every other delete — it lands in "Deleted today"
+  // and is restorable. Calendar events aren't ours to delete.
+  const handleAssistantDelete = async (task) => {
+    if (!task) throw new Error('Nothing to delete.')
+    if (task.kind === 'event') {
+      throw new Error(`“${task.title}” is a calendar event — delete it in Google Calendar.`)
+    }
+    await deleteTask(task.id)
+  }
+
+  // Turn a reminder on or off, optionally with a lead time. Reminders hang off a
+  // start time, so an untimed task has nothing to fire against.
+  const handleAssistantReminder = async (task, on, leadMin) => {
+    if (!task) throw new Error('Nothing to change.')
+    if (task.kind === 'event') {
+      throw new Error(`“${task.title}” is a calendar event — reminders only work on tasks.`)
+    }
+    if (on && !task.time) {
+      throw new Error(`“${task.title}” has no start time, so a reminder has nothing to fire against.`)
+    }
+    const patch = { hasReminder: Boolean(on) }
+    if (on && Number(leadMin) > 0) patch.reminderLeadMin = Number(leadMin)
+    await updateTask(task.id, patch)
+    focusOn(task)
+  }
+
+  // Jump to whatever we just changed and flash it, so a voice command has a
+  // visible result rather than happening somewhere off-screen.
+  const focusOn = (item) => {
+    const day = item?.date ? new Date(`${item.date}T00:00:00`) : null
+    if (day && !Number.isNaN(day.getTime())) { setSelectedDate(day); setView('day') }
+    if (item?.kind === 'task') {
+      setHighlightTaskId(item.id)
+      setTimeout(() => setHighlightTaskId(null), 3000)
+    }
+    setTimeout(() => scrollToSection(item?.time ? 'schedule-section' : 'tasks-section'), 80)
   }
 
   // "Take my subtasks from X and add them to Y." The model only picks the two
@@ -746,6 +813,9 @@ export default function App() {
         onComplete={toggleComplete}
         onDuplicate={handleDuplicate}
         onCopySubtasks={handleCopySubtasks}
+        onAddSubtasks={handleAddSubtasks}
+        onAssistantDelete={handleAssistantDelete}
+        onSetReminder={handleAssistantReminder}
         defaultDate={selectedISO}
       />
 
