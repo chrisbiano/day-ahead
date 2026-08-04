@@ -139,7 +139,15 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
               placeholder="Add, change, or finish a task — “2h edit tomorrow 10am”, “push my 2pm edit to 4”, “rough cut is done”"
               className="input w-full text-sm resize-none"
             />
-            {error && <p className="text-xs text-muted mt-2">{error}</p>}
+            {/* Prominent: when the assistant can't act, this is the ONLY thing
+                telling you why. As small grey text it read as "nothing happened",
+                which looks like a hang rather than an answer. */}
+            {error && (
+              <div className="mt-2 rounded-lg border border-warn-line/40 bg-warn/10 px-3 py-2">
+                <p className="text-xs font-medium text-fg mb-0.5">Couldn’t do that</p>
+                <p className="text-xs text-muted">{error}</p>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2 mt-3">
               <span className="text-xs text-faint">Your A.I. assistant constructs it — you confirm before it saves.</span>
               <div className="flex gap-2 shrink-0">
