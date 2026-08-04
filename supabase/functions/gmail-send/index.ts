@@ -1,4 +1,4 @@
-// Sentinel — reply to an email as Chris, in-thread, with his real Gmail signature.
+// Day Ahead — reply to an email as Chris, in-thread, with his real Gmail signature.
 //
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
 // Requires the account to have granted gmail.send (to send) and
@@ -11,7 +11,7 @@
 //   send    — build a threaded HTML reply (typed body + the untouched signature)
 //             and send it, then mark the email handled.
 //
-// This is the only code in Sentinel that sends mail as Chris. It is
+// This is the only code in Day Ahead that sends mail as Chris. It is
 // deliberately reply-only: it answers an existing message it can verify he
 // owns, never composes to an arbitrary address.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'

@@ -1,4 +1,4 @@
--- Sentinel — reminder lead time + repeat.
+-- Day Ahead — reminder lead time + repeat.
 --
 -- reminder_lead_min : fire this many minutes BEFORE the task's time (0 = at time).
 --                     Baked into remind_at client-side, so the tick is unchanged

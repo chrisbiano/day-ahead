@@ -1,4 +1,4 @@
--- Sentinel — what each mailbox is FOR, in Chris's own words.
+-- Day Ahead — what each mailbox is FOR, in Chris's own words.
 --
 -- Triage is worthless without this. "Needs a reply" means something different
 -- per mailbox: a venue asking about March is critical on the band's address and

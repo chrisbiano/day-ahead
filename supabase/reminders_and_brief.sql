@@ -1,4 +1,4 @@
--- Sentinel — scheduling for task reminders + the morning brief.
+-- Day Ahead — scheduling for task reminders + the morning brief.
 --
 -- Both are delivered by the scheduler-tick Edge Function, which Supabase Cron
 -- pings every minute. This migration adds the columns/table it reads.

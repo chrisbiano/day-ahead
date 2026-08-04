@@ -1,4 +1,4 @@
--- Sentinel — database schema
+-- Day Ahead — database schema
 -- Run this in the Supabase dashboard (SQL Editor) after creating the project.
 -- Row-level security ensures each signed-in user only sees their own tasks.
 

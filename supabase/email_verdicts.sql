@@ -1,4 +1,4 @@
--- Sentinel — Claude's triage verdict for a single email, cached.
+-- Day Ahead — Claude's triage verdict for a single email, cached.
 --
 -- Classifying costs money and takes a second, so we only ever ask Claude about
 -- mail it hasn't seen. One row per Gmail message id; a page load reads these

@@ -249,7 +249,7 @@ export default function Timeline({
     id: item.rawId, title: item.title, date: item.date, time: item.time,
   })
 
-  // Add a subtask inline — to an event's Sentinel note, or straight onto a task's
+  // Add a subtask inline — to an event's Day Ahead note, or straight onto a task's
   // own subtask list. Same affordance for both, so a task session gets the exact
   // add-a-step flow a calendar block has.
   const submitSubtask = (item) => {
@@ -296,7 +296,7 @@ export default function Timeline({
     })),
     ...events.map(e => ({
       id: `e-${e.id}`,
-      rawId: e.id,                        // key for Sentinel's event annotations
+      rawId: e.id,                        // key for Day Ahead's event annotations
       title: e.title,
       date: e.date,
       time: e.time,
@@ -399,7 +399,7 @@ export default function Timeline({
         ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface rounded-lg' : ''
     }`}>
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Check anything off right here. For events this is Sentinel's own
+        {/* Check anything off right here. For events this is Day Ahead's own
             "wrapped up" flag — Google's copy is never touched. */}
         <input
           type="checkbox"
@@ -536,7 +536,7 @@ export default function Timeline({
         />
       )}
 
-      {/* Add-a-step checklist — a calendar block's Sentinel note, or a task's own
+      {/* Add-a-step checklist — a calendar block's Day Ahead note, or a task's own
           subtasks. Same inline affordance for both. */}
       {(item.kind === 'event' || item.kind === 'task') && (
         addingFor === item.rawId ? (

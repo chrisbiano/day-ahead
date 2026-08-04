@@ -1,4 +1,4 @@
-// Sentinel — pull recent mail from every connected Google account and let Claude
+// Day Ahead — pull recent mail from every connected Google account and let Claude
 // sort it into what Chris would actually DO with it.
 //
 // Deploy with "Verify JWT" ON: the app calls this with the user's login token.

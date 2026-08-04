@@ -1,4 +1,4 @@
-// Sentinel — draft a reply for Chris. He gives a one-line intent ("yes, Tuesday
+// Day Ahead — draft a reply for Chris. He gives a one-line intent ("yes, Tuesday
 // works"); Claude reads the email he's replying to and writes the reply body in
 // his voice. It NEVER sends — the draft lands in the compose box for Chris to
 // edit and send himself. (Sending stays in gmail-send.)

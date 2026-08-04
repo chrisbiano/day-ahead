@@ -1,7 +1,7 @@
--- Sentinel — subtasks attached to Google Calendar events.
+-- Day Ahead — subtasks attached to Google Calendar events.
 --
 -- Calendar access is read-only by design, so we never write back to Google.
--- These are Sentinel's own annotations, keyed to the event id we build in the
+-- These are Day Ahead's own annotations, keyed to the event id we build in the
 -- calendar-events function ("<account>:<calendar>:<googleEventId>"). For
 -- recurring events, singleEvents expansion gives each instance its own id, so
 -- checklists attach per-occurrence — prep for *today's* block, not all of them.

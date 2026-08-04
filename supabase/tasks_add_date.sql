@@ -1,4 +1,4 @@
--- Sentinel — give tasks a date so the day can be planned ahead.
+-- Day Ahead — give tasks a date so the day can be planned ahead.
 --
 -- Tasks originally stored only a clock time ("09:00 AM"), which made every task
 -- implicitly "today". Adding a date column (defaulting to current_date) backfills

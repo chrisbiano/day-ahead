@@ -1,4 +1,4 @@
--- Sentinel — soft-delete for tasks.
+-- Day Ahead — soft-delete for tasks.
 --
 -- deleted_at : set when a task is deleted instead of destroying the row. Deleted
 --              tasks are hidden everywhere, listed under "Recently deleted" with

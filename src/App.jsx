@@ -187,7 +187,7 @@ export default function App() {
   } = useEmails()
 
   // Real events from every connected Google Calendar, merged onto the timeline.
-  // Sentinel always opens on today, in day view; you navigate away deliberately.
+  // Day Ahead always opens on today, in day view; you navigate away deliberately.
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [view, setView] = useState('day')
   const selectedISO = toISODate(selectedDate)
@@ -207,7 +207,7 @@ export default function App() {
 
   const dayEvents = events.filter(e => e.date === selectedISO)
 
-  // Sentinel-side prep checklists layered onto calendar blocks.
+  // Day Ahead-side prep checklists layered onto calendar blocks.
   const {
     notes: eventNotes,
     addSubtask: addEventSubtask,

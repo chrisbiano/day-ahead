@@ -5,7 +5,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 
 export const isConnectConfigured = Boolean(CLIENT_ID && SUPABASE_URL)
 
-/* Calendar stays read-only — Sentinel annotates blocks in its own store and
+/* Calendar stays read-only — Day Ahead annotates blocks in its own store and
    never writes back to Google.
  *
  * Gmail scopes, each earning its place:

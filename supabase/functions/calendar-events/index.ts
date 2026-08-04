@@ -1,4 +1,4 @@
-// Sentinel — fetch calendar events across all connected Google accounts.
+// Day Ahead — fetch calendar events across all connected Google accounts.
 // Pulls from every calendar the account can see (not just "primary"), skipping
 // ones hidden in the Google Calendar UI.
 // Deploy with "Verify JWT" ON: the app calls this with the user's login token.
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
         .filter((e: any) => e.status !== 'cancelled')
         .map((e: any) => ({
           // Keyed by the account's EMAIL, not its internal id — email survives a
-          // disconnect/reconnect, so Sentinel-side subtasks stay attached instead
+          // disconnect/reconnect, so Day Ahead-side subtasks stay attached instead
           // of being orphaned when the account id is regenerated.
           id: `${acct.email}:${cal.id}:${e.id}`,
           title: e.summary || '(no title)',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-/* Forward an email from inside Sentinel, with Gmail-style recipient
+/* Forward an email from inside Day Ahead, with Gmail-style recipient
  * autocomplete: as you type a name, it searches the people you've emailed on
  * this account and lets you pick — or you can just type a full address.
  *

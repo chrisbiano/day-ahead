@@ -1,4 +1,4 @@
-// Sentinel — autocomplete addresses for forwarding, from the people you've
+// Day Ahead — autocomplete addresses for forwarding, from the people you've
 // emailed on a given account (Google People API "other contacts").
 //
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.

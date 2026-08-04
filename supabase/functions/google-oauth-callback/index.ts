@@ -1,4 +1,4 @@
-// Sentinel — Google OAuth callback for connecting Gmail/Calendar accounts.
+// Day Ahead — Google OAuth callback for connecting Gmail/Calendar accounts.
 // Deploy with "Verify JWT" OFF: Google's redirect carries no Supabase login
 // token, so this endpoint must be publicly reachable. It authenticates the
 // user via the access token packed into the OAuth `state` instead.
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
-  // Identify the Sentinel user from the access token passed in `state`.
+  // Identify the Day Ahead user from the access token passed in `state`.
   const { data: u, error: uErr } = await admin.auth.getUser(token)
   if (uErr || !u?.user) return back(origin, { connect_error: 'auth' })
   const userId = u.user.id

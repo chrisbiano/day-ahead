@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 const uid = () => Math.random().toString(36).slice(2, 9)
 const EMPTY = { subtasks: [], done: false, title: null, date: null, time: null }
 
-/* Sentinel's own annotations on Google Calendar events — a prep checklist and a
+/* Day Ahead's own annotations on Google Calendar events — a prep checklist and a
    "wrapped up" flag. Calendar access is read-only, so none of this is written
    back to the user's calendar.
  *
@@ -132,7 +132,7 @@ export default function useEventNotes() {
     persist(event, { ...cur, subtasks: [...subtasks, ...hidden] })
   }, [persist])
 
-  // "I'm wrapped up with this block" — Sentinel-side only.
+  // "I'm wrapped up with this block" — Day Ahead-side only.
   const toggleDone = useCallback((event) => {
     const cur = get(event.id)
     persist(event, { ...cur, done: !cur.done })

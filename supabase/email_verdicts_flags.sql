@@ -1,4 +1,4 @@
--- Sentinel — let Chris correct and flag triaged mail.
+-- Day Ahead — let Chris correct and flag triaged mail.
 --
 -- flagged:         a star. Flagged mail floats to the top of its bucket so an
 --                  important thread doesn't scroll away.

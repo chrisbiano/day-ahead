@@ -1,8 +1,8 @@
-// Sentinel — act on one email, because Chris clicked something.
+// Day Ahead — act on one email, because Chris clicked something.
 //
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
 //
-// This is the only code in Sentinel that mutates a mailbox, so it is
+// This is the only code in Day Ahead that mutates a mailbox, so it is
 // deliberately small and deliberately dumb: it takes one message id and one of
 // three verbs, and it never decides anything. Claude's verdict lives in
 // email_verdicts and is a suggestion; nothing here reads it.
@@ -10,7 +10,7 @@
 //   read        — remove the UNREAD label
 //   trash       — move to Trash. Recoverable in Gmail for 30 days. There is no
 //                 permanent-delete verb on purpose: that needs Google's widest
-//                 mail scope, and Sentinel should not hold it.
+//                 mail scope, and Day Ahead should not hold it.
 //   unsubscribe — POST the sender's RFC 8058 one-click endpoint, then trash.
 //
 // Replying is not here. Sending mail as Chris is a bigger decision than triage

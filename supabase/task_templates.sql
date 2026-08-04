@@ -1,4 +1,4 @@
--- Sentinel — reusable task templates ("blueprints").
+-- Day Ahead — reusable task templates ("blueprints").
 --
 -- A template stores the SHAPE of a recurring piece of work — title, duration,
 -- subtasks, reminder settings — but never a date or time; those are chosen each

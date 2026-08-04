@@ -1,4 +1,4 @@
--- Sentinel — connected accounts (Gmail/Calendar data sources)
+-- Day Ahead — connected accounts (Gmail/Calendar data sources)
 -- Run in Supabase SQL Editor. Separate from schema.sql (tasks).
 --
 -- Design: the browser can read mailbox METADATA (email, status) but NEVER the

@@ -11,7 +11,7 @@ function fullDate(iso) {
 
 /* Read an email in-app — no bouncing to Gmail. Fetches the full body on open
  * and renders it in a sandboxed iframe: scripts, forms, and same-origin access
- * stay blocked, so hostile email markup can't touch Sentinel or the page. The
+ * stay blocked, so hostile email markup can't touch Day Ahead or the page. The
  * one allowance is user-clicked links opening in a NEW TAB (allow-popups +
  * escape, with <base target="_blank">) — same risk profile as clicking a link
  * in Gmail itself. Reply is one click away without leaving the reader. */

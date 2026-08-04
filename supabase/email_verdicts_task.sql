@@ -1,4 +1,4 @@
--- Sentinel — remember that a "reply later" task was already made for an email,
+-- Day Ahead — remember that a "reply later" task was already made for an email,
 -- so the "+ Task" button greys out and can't spawn duplicates (even after a
 -- reload or the next day).
 

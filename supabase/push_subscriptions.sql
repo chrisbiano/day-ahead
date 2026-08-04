@@ -1,4 +1,4 @@
--- Sentinel — Web Push subscriptions, one row per device.
+-- Day Ahead — Web Push subscriptions, one row per device.
 --
 -- When Chris turns on notifications on a device (phone, laptop), the browser
 -- hands us a push subscription: an endpoint URL the push service listens on,

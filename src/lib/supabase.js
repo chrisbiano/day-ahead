@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// When the env vars aren't set, Sentinel runs in local-only mode (no auth,
+// When the env vars aren't set, Day Ahead runs in local-only mode (no auth,
 // tasks in localStorage) so the app still works before the backend is wired.
 export const isSupabaseConfigured = Boolean(url && anonKey)
 

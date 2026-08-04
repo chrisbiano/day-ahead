@@ -1,4 +1,4 @@
-// Sentinel — fetch one email's full body so it can be read in-app.
+// Day Ahead — fetch one email's full body so it can be read in-app.
 //
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
 // No new scope: reading a message is covered by gmail.modify, already granted —
