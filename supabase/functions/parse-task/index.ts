@@ -154,6 +154,10 @@ Example: "add my soundbetter task from today to tomorrow as well at the same tim
       command: {
         intent: p.intent || 'none',
         taskRef: ref,
+        // The response is built field by field, so anything added to SCHEMA has
+        // to be added HERE too or it's silently dropped in transit — which is
+        // exactly how copySubtasks lost its destination.
+        targetRef: Number.isInteger(p.targetRef) ? p.targetRef : -1,
         title: p.title || '',
         date: p.date || null,
         time: time || null,
