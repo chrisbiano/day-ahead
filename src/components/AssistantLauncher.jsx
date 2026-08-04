@@ -54,6 +54,20 @@ export default function AssistantLauncher({ onCommand, onAdd, onUpdate, onComple
       } else if ((c.intent === 'update' || c.intent === 'complete' || c.intent === 'duplicate') && c.task) {
         setConfirm(c)
         setOpen(false)
+      } else if (c.intent && c.intent !== 'none') {
+        // The model produced a real command but the app couldn't tie one of its
+        // refs back to an actual item — so its note reads like a SUCCESS while
+        // nothing happens. Say which side failed instead of printing the note as
+        // though it were the error.
+        const missing = []
+        if (!c.task) missing.push('the source item')
+        if (c.intent === 'copySubtasks' && !c.target) missing.push('the destination')
+        setError(
+          missing.length
+            ? `Understood you — but I couldn't find ${missing.join(' or ')} in what's currently loaded. `
+              + `(${c.intent}: source ref ${c.taskRef}, target ref ${c.targetRef ?? 'n/a'})`
+            : (c.note || 'Could not match that to anything.'),
+        )
       } else {
         setError(c.note || 'Could not match that to anything — try being more specific.')
       }
