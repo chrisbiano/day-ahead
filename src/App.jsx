@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import useTasks from './hooks/useTasks'
 import useUserPrefs from './hooks/useUserPrefs'
 import { toISODate } from './lib/tasks'
-import { supabase } from './lib/supabase'
+import { supabase, isSupabaseConfigured } from './lib/supabase'
 import useCalendarEvents from './hooks/useCalendarEvents'
 import useEventNotes from './hooks/useEventNotes'
 import useEmails from './hooks/useEmails'
@@ -446,6 +446,27 @@ export default function App() {
     const patch = { hasReminder: Boolean(on) }
     if (on && Number(leadMin) > 0) patch.reminderLeadMin = Number(leadMin)
     await updateTask(task.id, patch)
+
+    // Read it back. Task updates write to the server in the background and only
+    // log on failure, so a confirm card can report success while the row never
+    // changed — which is exactly what happened. Verify against the DB and say so
+    // if it disagrees, rather than trusting the local copy.
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('tasks').select('has_reminder, reminder_lead_min, remind_at')
+        .eq('id', task.id).single()
+      if (error) throw new Error(`Couldn't confirm the change saved: ${error.message}`)
+      if (Boolean(data?.has_reminder) !== Boolean(on)) {
+        throw new Error(
+          `The server still shows the reminder ${data?.has_reminder ? 'ON' : 'OFF'} for “${task.title}”. Nothing was saved.`,
+        )
+      }
+      if (on && !data?.remind_at) {
+        throw new Error(
+          `Reminder set, but no fire time could be worked out for “${task.title}” — check it has a date as well as a time.`,
+        )
+      }
+    }
     focusOn(task)
   }
 

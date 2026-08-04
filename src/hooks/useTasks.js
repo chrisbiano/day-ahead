@@ -211,7 +211,7 @@ export default function useTasks() {
           ? { ...t, ...rest, seriesId: null, recurrence: null, remindAt: patch.remindAt }
           : t)))
       if (isSupabaseConfigured) {
-        updateTaskRow(id, patch).catch(e => console.error('Update failed:', e))
+        updateTaskRow(id, patch).catch(e => { console.error('Update failed:', e); setError(e.message || 'A change could not be saved') })
         const d = new Date(`${after}T00:00:00`); d.setDate(d.getDate() + 1)
         deleteSeriesFrom(seriesId, toISODate(d)).catch(e => console.error('Series stop failed:', e))
       }
@@ -244,7 +244,7 @@ export default function useTasks() {
         }))
 
       if (isSupabaseConfigured) {
-        updateTaskRow(id, patch).catch(e => console.error('Update failed:', e))
+        updateTaskRow(id, patch).catch(e => { console.error('Update failed:', e); setError(e.message || 'A change could not be saved') })
         if (copies.length) {
           insertTasks(copies, userIdRef.current)
             .then(created => setTasks(prev => [...prev, ...created]))
@@ -270,7 +270,7 @@ export default function useTasks() {
     // scheduled check stays accurate without waiting for a reload.
     const local = 'remindAt' in patch ? { ...data, remindAt: patch.remindAt } : data
     setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...local } : t)))
-    if (isSupabaseConfigured) updateTaskRow(id, patch).catch(e => console.error('Update failed:', e))
+    if (isSupabaseConfigured) updateTaskRow(id, patch).catch(e => { console.error('Update failed:', e); setError(e.message || 'A change could not be saved') })
   }, [])
 
   // A subtask isn't a row, so it can't be soft-deleted the way a task is. Instead
