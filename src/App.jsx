@@ -405,7 +405,11 @@ export default function App() {
     const copies = (source.subtasks || [])
       .filter(s => !s.deletedAt)
       .map(s => ({ id: newSubId(), title: s.title, done: false }))
-    if (copies.length === 0) return
+    // Say so rather than closing the card as if it worked — a silent no-op reads
+    // exactly like a hang.
+    if (copies.length === 0) {
+      throw new Error(`“${source.title}” has no subtasks to copy.`)
+    }
 
     const existing = (target.subtasks || []).filter(s => !s.deletedAt)
     if (target.kind === 'event') {
@@ -417,7 +421,10 @@ export default function App() {
       await updateTask(target.id, { subtasks: [...existing, ...copies] })
     }
 
-    if (target.date) { setSelectedDate(new Date(`${target.date}T00:00:00`)); setView('day') }
+    // Only navigate on a date that actually parses. An Invalid Date landing in
+    // selectedDate poisons every range the calendar derives from it.
+    const day = target.date ? new Date(`${target.date}T00:00:00`) : null
+    if (day && !Number.isNaN(day.getTime())) { setSelectedDate(day); setView('day') }
     setHighlightTaskId(target.kind === 'task' ? target.id : null)
     setTimeout(() => scrollToSection('schedule-section'), 80)
     setTimeout(() => setHighlightTaskId(null), 3000)
