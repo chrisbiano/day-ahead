@@ -53,6 +53,31 @@ export default function useEventNotes() {
     return () => { cancelled = true }
   }, [])
 
+  // Same staleness problem as tasks: notes loaded once at startup, so a checklist
+  // ticked off on the phone never appeared on the desktop until a full reload.
+  const refresh = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    try {
+      const { data, error } = await supabase
+        .from('event_notes')
+        .select('event_id, subtasks, done, title, date, time')
+      if (error) throw error
+      const map = {}
+      for (const row of data ?? []) {
+        map[row.event_id] = {
+          subtasks: row.subtasks || [],
+          done: Boolean(row.done),
+          title: row.title ?? null,
+          date: row.date ?? null,
+          time: row.time ?? null,
+        }
+      }
+      setNotes(map)
+    } catch (e) {
+      console.error('Event notes refresh failed:', e)
+    }
+  }, [])
+
   const get = (eventId) => notesRef.current[eventId] || EMPTY
 
   // `event` carries the block's context so the note can stand on its own later.
@@ -196,7 +221,7 @@ export default function useEventNotes() {
   }, [notes])
 
   return {
-    notes: visibleNotes, loading, addSubtask, toggleSubtask, removeSubtask,
+    notes: visibleNotes, loading, refresh, addSubtask, toggleSubtask, removeSubtask,
     restoreSubtask, deletedSubtasks, setSubtasks, toggleDone, backfillContext,
   }
 }

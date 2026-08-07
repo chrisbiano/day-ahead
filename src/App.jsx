@@ -93,6 +93,7 @@ export default function App() {
     unsnoozeTask,
     toggleComplete,
     toggleSubtask,
+    refresh: refreshTasks,
     error: taskError,
     clearError: clearTaskError,
   } = useTasks()
@@ -215,6 +216,7 @@ export default function App() {
     removeSubtask: removeEventSubtask,
     setSubtasks: setEventSubtasks,
     restoreSubtask: restoreEventSubtask,
+    refresh: refreshEventNotes,
     deletedSubtasks: deletedEventSubtasks,
     toggleDone: toggleEventDone,
     backfillContext,
@@ -470,6 +472,18 @@ export default function App() {
     focusOn(task)
   }
 
+  // The ↻ button used to pull only the calendar, which is why an edit made on the
+  // phone never showed up here — tasks and checklists were whatever this tab
+  // loaded at startup. Now it re-pulls everything that can change on the other
+  // device.
+  const refreshEverything = async () => {
+    await Promise.all([
+      refreshCalendar(),
+      refreshTasks(),
+      refreshEventNotes(),
+    ])
+  }
+
   // Jump to whatever we just changed and flash it, so a voice command has a
   // visible result rather than happening somewhere off-screen.
   const focusOn = (item) => {
@@ -623,7 +637,7 @@ export default function App() {
   return (
     <Layout
       onOpenSettings={() => setSettingsOpen(true)}
-      onRefresh={refreshCalendar}
+      onRefresh={refreshEverything}
       refreshing={calendarLoading}
     >
       <main className="space-y-6">

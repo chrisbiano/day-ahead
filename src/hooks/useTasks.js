@@ -36,6 +36,17 @@ export default function useTasks() {
 
   useEffect(() => { tasksRef.current = tasks }, [tasks])
 
+  // Split a fresh set of rows into live vs recently-deleted (30-day grace;
+  // anything older has already been purged). Shared by the initial load and by
+  // every later refresh, so both land in exactly the same shape.
+  const applyRows = useCallback((rows) => {
+    const cutoff = Date.now() - 30 * 86_400_000
+    setTasks(rows.filter(r => !r.deletedAt))
+    setDeletedTasks(rows
+      .filter(r => r.deletedAt && new Date(r.deletedAt).getTime() > cutoff)
+      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt)))
+  }, [])
+
   // ---- Local mode (no Supabase): tasks live in localStorage ----
   useEffect(() => {
     if (isSupabaseConfigured) return
@@ -73,12 +84,7 @@ export default function useTasks() {
             localStorage.removeItem(TASKS_KEY) // migrated — don't re-import
           }
         }
-        // Live vs recently-deleted (30-day grace; anything older is purged).
-        const cutoff = Date.now() - 30 * 86_400_000
-        setTasks(rows.filter(r => !r.deletedAt))
-        setDeletedTasks(rows
-          .filter(r => r.deletedAt && new Date(r.deletedAt).getTime() > cutoff)
-          .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt)))
+        applyRows(rows)
         purgeOldDeleted().catch(() => { /* best-effort cleanup */ })
       } catch (e) {
         console.error('Failed to load tasks:', e)
@@ -87,6 +93,39 @@ export default function useTasks() {
       }
     })()
   }, [])
+
+  /* Pull the current state of the world from the server.
+     Without this the app showed whatever it loaded at startup forever — edit a
+     task on your phone and the desktop kept showing the old version until a full
+     page reload. */
+  const refresh = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    try {
+      applyRows(await fetchTasks())
+    } catch (e) {
+      console.error('Task refresh failed:', e)
+    }
+  }, [])
+
+  // Coming back to a tab that's been sitting there is exactly when its data is
+  // most likely stale — you were just doing something on the other device.
+  // Throttled so flicking between windows doesn't hammer the database.
+  const lastSync = useRef(0)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastSync.current < 8000) return
+      lastSync.current = Date.now()
+      refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [refresh])
 
   // ---- Handlers (optimistic local update + DB write when configured) ----
   const addTask = useCallback(async (data) => {
@@ -448,6 +487,7 @@ export default function useTasks() {
 
   return {
     tasks: visibleTasks, loading, error, clearError: () => setError(null),
+    refresh,
     addTask, updateTask, deleteTask, deleteSeries, duplicateTask, reorderTasks,
     deletedTasks, restoreTask, undoableDelete, undoDelete, dismissUndoDelete,
     deleteSubtask, restoreSubtask, deletedSubtasks,
