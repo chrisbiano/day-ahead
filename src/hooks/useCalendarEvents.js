@@ -55,15 +55,36 @@ export default function useCalendarEvents(rangeStart, rangeEnd) {
       })
       if (fnError) throw fnError
       const normalized = (data?.events ?? [])
-        .filter(e => e.start && !e.allDay) // all-day events have no slot on a time-blocked day
-        .map(e => ({
-          id: e.id,
-          title: e.title,
-          date: toISODate(new Date(e.start)),
-          time: toTimeLabel(e.start),
-          duration: e.end ? minutesBetween(e.start, e.end) : 30,
-          account: e.account,
-        }))
+        .filter(e => e.start)
+        .map(e => {
+          // All-day events have no clock position, so they carry the days they
+          // COVER instead of a time. Google gives "YYYY-MM-DD" with an EXCLUSIVE
+          // end date, so a single-day event ends the following morning — step
+          // back a day to get the last day it actually occupies.
+          if (e.allDay) {
+            const startDate = String(e.start).slice(0, 10)
+            let endDate = startDate
+            if (e.end) {
+              const ex = new Date(`${String(e.end).slice(0, 10)}T00:00:00`)
+              ex.setDate(ex.getDate() - 1)
+              const last = toISODate(ex)
+              if (last > startDate) endDate = last
+            }
+            return {
+              id: e.id, title: e.title, account: e.account,
+              allDay: true, date: startDate, endDate, time: null, duration: 0,
+            }
+          }
+          return {
+            id: e.id,
+            title: e.title,
+            date: toISODate(new Date(e.start)),
+            time: toTimeLabel(e.start),
+            duration: e.end ? minutesBetween(e.start, e.end) : 30,
+            account: e.account,
+            allDay: false,
+          }
+        })
       cache.set(key, normalized)
       // Only apply if the user is still on this range.
       if (activeKey.current === key) setEvents(normalized)

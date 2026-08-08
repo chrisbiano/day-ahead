@@ -2,7 +2,7 @@ import { useState } from 'react'
 import SectionHeader from './SectionHeader'
 import ViewSwitcher from './ViewSwitcher'
 import TaskForm from './TaskForm'
-import { weekDays, addDays, toISODate, toMinutes, isSameDay } from '../lib/dates'
+import { weekDays, addDays, toISODate, toMinutes, isSameDay, eventCoversDay } from '../lib/dates'
 
 function WeekIcon() {
   return (
@@ -35,7 +35,7 @@ export default function WeekView({
       key: `t-${t.id}`, id: t.id, title: t.title, time: t.time,
       kind: 'task', done: t.completed,
     })),
-    ...events.filter(e => e.date === iso).map(e => ({
+    ...events.filter(e => eventCoversDay(e, iso)).map(e => ({
       key: `e-${e.id}`, title: e.title, time: e.time, kind: 'event',
     })),
   ].sort((a, b) => toMinutes(a.time) - toMinutes(b.time))

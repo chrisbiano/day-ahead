@@ -1,6 +1,6 @@
 import SectionHeader from './SectionHeader'
 import ViewSwitcher from './ViewSwitcher'
-import { monthGrid, addMonths, toISODate, toMinutes, isSameDay } from '../lib/dates'
+import { monthGrid, addMonths, toISODate, toMinutes, isSameDay, eventCoversDay } from '../lib/dates'
 
 function MonthIcon() {
   return (
@@ -33,7 +33,7 @@ export default function MonthView({
     ...tasks.filter(t => t.date === iso).map(t => ({
       key: `t-${t.id}`, title: t.title, time: t.time, kind: 'task', done: t.completed,
     })),
-    ...events.filter(e => e.date === iso).map(e => ({
+    ...events.filter(e => eventCoversDay(e, iso)).map(e => ({
       key: `e-${e.id}`, title: e.title, time: e.time, kind: 'event',
     })),
   ].sort((a, b) => toMinutes(a.time) - toMinutes(b.time))

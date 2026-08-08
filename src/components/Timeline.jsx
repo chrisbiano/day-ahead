@@ -159,6 +159,12 @@ function EditIcon() {
   )
 }
 
+// "Aug 8 – 11" for a multi-day all-day event, so a span reads as a span.
+function prettyRange(startISO, endISO) {
+  const fmt = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${fmt(startISO)} – ${fmt(endISO)}`
+}
+
 function EyeOffIcon({ off }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -255,6 +261,10 @@ export default function Timeline({
   const [editingTask, setEditingTask] = useState(null)  // full task being edited in the form
   const [showHidden, setShowHidden] = useState(false)   // reveal hidden calendar events
   const hiddenCount = events.filter(e => eventNotes[e.id]?.hidden).length
+  // All-day events: no time, so they sit above the schedule rather than in it.
+  const allDayEvents = events
+    .filter(e => e.allDay)
+    .filter(e => showHidden || !eventNotes[e.id]?.hidden)
   const [confirmDelete, setConfirmDelete] = useState(null)  // repeating task id awaiting delete choice
 
   // Event handlers take the block's context, not just its id, so the saved note
@@ -310,7 +320,10 @@ export default function Timeline({
     })),
     // Events you've hidden drop out of the day unless you're reviewing them.
     // Not a calendar change — they're still in Google, just not in your way.
+    // All-day events are excluded here — they have no clock position, so they
+    // ride in a band above the schedule instead of pretending to start at midnight.
     ...events
+      .filter(e => !e.allDay)
       .filter(e => showHidden || !eventNotes[e.id]?.hidden)
       .map(e => ({
         id: `e-${e.id}`,
@@ -830,6 +843,45 @@ export default function Timeline({
               : `No calendar events ${isToday ? 'today' : 'on this day'}`}
       </p>
 
+      {/* All-day events, banded across the top. They own no slot on the clock, so
+          putting them in the timeline would either fake a start time or bury them
+          at midnight — neither is what "all day" means. */}
+      {allDayEvents.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-medium text-faint uppercase tracking-wider shrink-0">All day</span>
+          {allDayEvents.map(e => {
+            const note = eventNotes[e.id] || {}
+            const spans = e.endDate && e.endDate !== e.date
+            return (
+              <span
+                key={e.id}
+                className={`group inline-flex items-center gap-1.5 rounded-lg border border-line2 bg-surface2/60 pl-2.5 pr-1.5 py-1 text-xs ${
+                  note.done ? 'text-faint line-through' : 'text-fg'
+                } ${note.hidden ? 'opacity-60' : ''}`}
+              >
+                {e.title}
+                {spans && (
+                  <span className="text-[10px] text-faint">
+                    {prettyRange(e.date, e.endDate)}
+                  </span>
+                )}
+                {note.hidden && <span className="text-[10px] text-faint">hidden</span>}
+                {onToggleEventHidden && (
+                  <button
+                    onClick={() => onToggleEventHidden({ id: e.id, title: e.title, date: e.date, time: null })}
+                    aria-label={note.hidden ? `Show ${e.title}` : `Hide ${e.title}`}
+                    title={note.hidden ? 'Show on schedule' : 'Hide from schedule'}
+                    className="w-5 h-5 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
+                  >
+                    <EyeOffIcon off={!note.hidden} />
+                  </button>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      )}
+
       <div className="card p-0 overflow-hidden">
         {items.length === 0 ? (
           // A blank day still gets a light sense of scale: four anchors, 7·12·3·7.
@@ -842,7 +894,9 @@ export default function Timeline({
             ))}
             <div className="absolute inset-0 flex flex-col items-start justify-center pl-6 pr-5">
               <p className="text-sm text-muted">
-                Nothing scheduled {isToday ? 'today' : `for ${dayLabel}`}.
+                {allDayEvents.length > 0
+                  ? `Nothing at a set time ${isToday ? 'today' : `on ${dayLabel}`}.`
+                  : `Nothing scheduled ${isToday ? 'today' : `for ${dayLabel}`}.`}
               </p>
               <p className="text-xs text-faint mt-1">
                 Add a task to start shaping this day.

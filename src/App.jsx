@@ -13,7 +13,7 @@ import Timeline from './components/Timeline'
 import WeekView from './components/WeekView'
 import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
-import { weekDays, monthGrid } from './lib/dates'
+import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -206,7 +206,7 @@ export default function App() {
     refresh: refreshCalendar,
   } = useCalendarEvents(rangeStart, rangeEnd)
 
-  const dayEvents = events.filter(e => e.date === selectedISO)
+  const dayEvents = events.filter(e => eventCoversDay(e, selectedISO))
 
   // Day Ahead-side prep checklists layered onto calendar blocks.
   const {

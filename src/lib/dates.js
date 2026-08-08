@@ -55,3 +55,13 @@ export function toMinutes(t) {
   if (/pm/i.test(m[3])) h += 12
   return h * 60 + Number(m[2])
 }
+
+/* Does this event occupy the given day?
+   Timed events sit on exactly one date. All-day events can span several, and
+   carry `endDate` as the LAST day they occupy (Google's own end date is
+   exclusive; that's normalised when the event is loaded). */
+export function eventCoversDay(event, iso) {
+  if (!event) return false
+  if (!event.allDay) return event.date === iso
+  return event.date <= iso && iso <= (event.endDate || event.date)
+}
