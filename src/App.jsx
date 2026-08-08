@@ -219,6 +219,7 @@ export default function App() {
     refresh: refreshEventNotes,
     deletedSubtasks: deletedEventSubtasks,
     toggleDone: toggleEventDone,
+    toggleHidden: toggleEventHidden,
     backfillContext,
   } = useEventNotes()
 
@@ -740,6 +741,7 @@ export default function App() {
             onRemoveEventSubtask={removeEventSubtask}
             onSetEventSubtasks={setEventSubtasks}
             onToggleEventDone={toggleEventDone}
+            onToggleEventHidden={toggleEventHidden}
             onUpdateTask={updateTask}
             onSubtaskDeleted={onSubtaskDeleted}
             onDeleteSubtask={deleteSubtask}

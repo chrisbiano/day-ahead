@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
-const EMPTY = { subtasks: [], done: false, title: null, date: null, time: null }
+const EMPTY = { subtasks: [], done: false, hidden: false, title: null, date: null, time: null }
 
 /* Day Ahead's own annotations on Google Calendar events — a prep checklist and a
    "wrapped up" flag. Calendar access is read-only, so none of this is written
@@ -30,7 +30,7 @@ export default function useEventNotes() {
 
         const { data, error } = await supabase
           .from('event_notes')
-          .select('event_id, subtasks, done, title, date, time')
+          .select('event_id, subtasks, done, hidden, title, date, time')
         if (error) throw error
 
         const map = {}
@@ -38,6 +38,7 @@ export default function useEventNotes() {
           map[row.event_id] = {
             subtasks: row.subtasks || [],
             done: Boolean(row.done),
+            hidden: Boolean(row.hidden),
             title: row.title ?? null,
             date: row.date ?? null,
             time: row.time ?? null,
@@ -60,13 +61,14 @@ export default function useEventNotes() {
     try {
       const { data, error } = await supabase
         .from('event_notes')
-        .select('event_id, subtasks, done, title, date, time')
+        .select('event_id, subtasks, done, hidden, title, date, time')
       if (error) throw error
       const map = {}
       for (const row of data ?? []) {
         map[row.event_id] = {
           subtasks: row.subtasks || [],
           done: Boolean(row.done),
+          hidden: Boolean(row.hidden),
           title: row.title ?? null,
           date: row.date ?? null,
           time: row.time ?? null,
@@ -97,6 +99,7 @@ export default function useEventNotes() {
         event_id: event.id,
         subtasks: record.subtasks,
         done: record.done,
+        hidden: Boolean(record.hidden),
         title: record.title,
         date: record.date,
         time: record.time,
@@ -163,6 +166,13 @@ export default function useEventNotes() {
     persist(event, { ...cur, done: !cur.done })
   }, [persist])
 
+  // "I don't need to see this on my schedule." A Day Ahead-side flag only — the
+  // event is untouched in Google Calendar, it just stops taking up room here.
+  const toggleHidden = useCallback((event) => {
+    const cur = get(event.id)
+    persist(event, { ...cur, hidden: !cur.hidden })
+  }, [persist])
+
   // The stable part of an event id — everything after the account prefix
   // ("<calendar>:<googleEventId>"). Two ids for the same real event share this
   // even if their account prefix differs (old internal-id vs new email format).
@@ -221,7 +231,7 @@ export default function useEventNotes() {
   }, [notes])
 
   return {
-    notes: visibleNotes, loading, refresh, addSubtask, toggleSubtask, removeSubtask,
+    notes: visibleNotes, loading, refresh, addSubtask, toggleSubtask, removeSubtask, toggleHidden,
     restoreSubtask, deletedSubtasks, setSubtasks, toggleDone, backfillContext,
   }
 }

@@ -159,6 +159,17 @@ function EditIcon() {
   )
 }
 
+function EyeOffIcon({ off }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+      {off && <line x1="3" y1="3" x2="21" y2="21" />}
+    </svg>
+  )
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -217,6 +228,7 @@ export default function Timeline({
   onRemoveEventSubtask,
   onSetEventSubtasks,
   onToggleEventDone,
+  onToggleEventHidden,
   selectedDate,
   onChangeDate,
   defaultDate,
@@ -241,6 +253,8 @@ export default function Timeline({
   const [addingTask, setAddingTask] = useState(false)
   const [snoozeFor, setSnoozeFor] = useState(null)  // task id whose snooze picker is open
   const [editingTask, setEditingTask] = useState(null)  // full task being edited in the form
+  const [showHidden, setShowHidden] = useState(false)   // reveal hidden calendar events
+  const hiddenCount = events.filter(e => eventNotes[e.id]?.hidden).length
   const [confirmDelete, setConfirmDelete] = useState(null)  // repeating task id awaiting delete choice
 
   // Event handlers take the block's context, not just its id, so the saved note
@@ -294,17 +308,22 @@ export default function Timeline({
       done: t.completed,
       subtasks: t.subtasks || [],
     })),
-    ...events.map(e => ({
-      id: `e-${e.id}`,
-      rawId: e.id,                        // key for Day Ahead's event annotations
-      title: e.title,
-      date: e.date,
-      time: e.time,
-      duration: e.duration,
-      kind: 'event',
-      subtasks: eventNotes[e.id]?.subtasks || [],
-      done: eventNotes[e.id]?.done || false,
-    })),
+    // Events you've hidden drop out of the day unless you're reviewing them.
+    // Not a calendar change — they're still in Google, just not in your way.
+    ...events
+      .filter(e => showHidden || !eventNotes[e.id]?.hidden)
+      .map(e => ({
+        id: `e-${e.id}`,
+        rawId: e.id,                        // key for Day Ahead's event annotations
+        title: e.title,
+        date: e.date,
+        time: e.time,
+        duration: e.duration,
+        kind: 'event',
+        subtasks: eventNotes[e.id]?.subtasks || [],
+        done: eventNotes[e.id]?.done || false,
+        hidden: Boolean(eventNotes[e.id]?.hidden),
+      })),
   ].sort((a, b) => {
     const byStart = toMinutes(a.time) - toMinutes(b.time)
     if (byStart !== 0) return byStart
@@ -425,6 +444,23 @@ export default function Timeline({
           <span className="text-[10px] text-warn border border-warn-line/40 bg-warn/10 rounded px-1.5 py-0.5 whitespace-nowrap">
             overlap
           </span>
+        )}
+        {item.hidden && (
+          <span className="text-[10px] text-faint border border-line2 rounded px-1.5 py-0.5 whitespace-nowrap">
+            hidden
+          </span>
+        )}
+        {/* Take a calendar event off the schedule. Google keeps it; you just
+            stop looking at it. */}
+        {item.kind === 'event' && onToggleEventHidden && (
+          <button
+            onClick={() => onToggleEventHidden(metaOf(item))}
+            aria-label={item.hidden ? `Show ${item.title}` : `Hide ${item.title}`}
+            title={item.hidden ? 'Show on schedule' : 'Hide from schedule'}
+            className="w-6 h-6 flex items-center justify-center rounded-md text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
+          >
+            <EyeOffIcon off={!item.hidden} />
+          </button>
         )}
         {/* Task controls, now that timed tasks are calendar-only: reminder bell +
             snooze (on active tasks), and Edit — the full form, where subtasks,
@@ -828,12 +864,24 @@ export default function Timeline({
                     : itemRow(node),
               )}
             </ol>
-            <button
-              onClick={() => setAddingTask(true)}
-              className="w-full text-left px-5 py-3 border-t border-line text-xs text-faint hover:text-fg hover:bg-surface2 transition-colors"
-            >
-              + Add task to this day
-            </button>
+            <div className="flex items-center justify-between gap-3 border-t border-line">
+              <button
+                onClick={() => setAddingTask(true)}
+                className="flex-1 text-left px-5 py-3 text-xs text-faint hover:text-fg hover:bg-surface2 transition-colors"
+              >
+                + Add task to this day
+              </button>
+              {/* Hidden events must never be a trapdoor — always show that
+                  they're there and offer the way back. */}
+              {hiddenCount > 0 && (
+                <button
+                  onClick={() => setShowHidden(v => !v)}
+                  className="px-5 py-3 text-xs text-faint hover:text-fg transition-colors whitespace-nowrap"
+                >
+                  {showHidden ? 'Hide again' : `${hiddenCount} hidden`}
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>
