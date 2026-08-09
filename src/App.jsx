@@ -14,7 +14,7 @@ import WeekView from './components/WeekView'
 import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
 import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
-import { carryOverItems, findTodayTarget } from './lib/carryOver'
+import { carryOverItems, findTodayTarget, todayTargets, agoLabel } from './lib/carryOver'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -97,6 +97,10 @@ export default function App() {
     refresh: refreshTasks,
     error: taskError,
     clearError: clearTaskError,
+    loading: tasksLoading,
+    parkLeftovers: parkTaskLeftovers,
+    resolveLeftover: resolveTaskLeftover,
+    leftoverSubtasks: taskLeftovers,
   } = useTasks()
 
   // Captures the browser timezone (so the morning brief lands at 7am local) and
@@ -222,6 +226,10 @@ export default function App() {
     toggleDone: toggleEventDone,
     toggleHidden: toggleEventHidden,
     backfillContext,
+    loading: eventNotesLoading,
+    parkLeftovers: parkEventLeftovers,
+    resolveLeftover: resolveEventLeftover,
+    leftoverSubtasks: eventLeftovers,
   } = useEventNotes()
 
   const [search, setSearch] = useState('')
@@ -637,114 +645,109 @@ export default function App() {
   // is for the untimed "whenever" to-dos. Keeps the two from doubling up.
   const untimedTasks = visibleTasks.filter(t => !t.time)
 
-  /* ---- Leftovers: unfinished subtasks from earlier days ----
-     All three actions clear the subtask off the day it was planned, which is
-     the habit this replaces: copy forward, then go back and delete the misses
-     so a finished day shows exactly what got accomplished. Completing one here
-     records it on TODAY for the same reason — that's the day the work happened,
-     and yesterday shouldn't take the credit.
+  /* ---- Carryover ----
+     Anything still owed on a day that has passed is parked into Carryover: off
+     that day (a finished day should list what got done, which is the manual
+     cleanup this replaces) and held in one place until it's filed against a
+     task or dropped.
 
-     Clearing is the app's existing soft delete (`deletedAt` in place), so a
-     leftover stays restorable from "Recently deleted" like any other subtask. */
-  const carryItems = carryOverItems({ tasks, eventNotes, todayISO })
+     The earlier design forced a destination at the moment you acted, and
+     invented a standalone task when nothing matched — which put the item beyond
+     the reach of carryover entirely. Parking removes the deadline, so an item
+     can sit unfiled without escaping. */
+  const swept = useRef(false)
+  useEffect(() => {
+    if (swept.current || tasksLoading || eventNotesLoading) return
+    swept.current = true
+    const due = carryOverItems({ tasks, eventNotes, todayISO })
+    if (due.length === 0) return
+    const byTask = new Map()
+    const byEvent = new Map()
+    for (const item of due) {
+      const bucket = item.source === 'task' ? byTask : byEvent
+      if (!bucket.has(item.parentId)) bucket.set(item.parentId, new Set())
+      bucket.get(item.parentId).add(item.subtaskId)
+    }
+    if (byTask.size) parkTaskLeftovers(byTask)
+    if (byEvent.size) parkEventLeftovers(byEvent)
+  }, [tasksLoading, eventNotesLoading, tasks, eventNotes, todayISO,
+    parkTaskLeftovers, parkEventLeftovers])
 
   const newSubId = () =>
     (crypto?.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`)
 
-  const eventRefFor = (item) => ({
-    id: item.parentId, title: item.parentTitle, date: item.date, time: item.parentTime,
-  })
+  // Parked items from both stores, most recent first. seriesId comes off the
+  // parent so a repeating block still resolves to today's row exactly.
+  const carryoverItems = [
+    ...taskLeftovers.map(l => ({
+      key: `task:${l.parentId}:${l.sub.id}`,
+      source: 'task',
+      parentId: l.parentId,
+      parentTitle: l.parentTitle,
+      seriesId: tasks.find(t => t.id === l.parentId)?.seriesId ?? null,
+      date: l.date,
+      subtaskId: l.sub.id,
+      title: l.sub.title,
+    })),
+    ...eventLeftovers.map(l => ({
+      key: `event:${l.parentId}:${l.sub.id}`,
+      source: 'event',
+      parentId: l.parentId,
+      parentTitle: l.parentTitle || 'Calendar block',
+      seriesId: null,
+      date: l.date,
+      subtaskId: l.sub.id,
+      title: l.sub.title,
+    })),
+  ]
+    .map(i => ({ ...i, ago: i.date ? agoLabel(i.date, todayISO) : '' }))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
 
-  // Grouped by parent: several leftovers routinely come from one block, and a
-  // write per subtask would have each one clobbering the last (both hooks build
-  // the new array from state that hasn't caught up yet).
-  const clearFromOriginalDay = (items) => {
-    const deletedAt = new Date().toISOString()
-    const byTask = new Map()
-    const byEvent = new Map()
-    for (const item of items) {
-      const bucket = item.source === 'task' ? byTask : byEvent
-      if (!bucket.has(item.parentId)) bucket.set(item.parentId, { item, ids: new Set() })
-      bucket.get(item.parentId).ids.add(item.subtaskId)
-    }
-    for (const [taskId, { ids }] of byTask) {
-      const t = tasks.find(x => x.id === taskId)
-      if (!t) continue
-      updateTask(taskId, {
-        subtasks: (t.subtasks || []).map(s => (ids.has(s.id) ? { ...s, deletedAt } : s)),
-      })
-    }
-    for (const [eventId, { item, ids }] of byEvent) {
-      const note = eventNotes[eventId]
-      if (!note) continue
-      setEventSubtasks(eventRefFor(item),
-        (note.subtasks || []).map(s => (ids.has(s.id) ? { ...s, deletedAt } : s)))
-    }
-  }
+  const resolveCarryover = (item) => (item.source === 'task'
+    ? resolveTaskLeftover(item.parentId, item.subtaskId)
+    : resolveEventLeftover(item.parentId, item.subtaskId))
 
-  const carryTargetLabel = (item) => {
-    const target = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
-    if (target?.kind === 'task') return `Move to ${target.task.title}`
-    if (target?.kind === 'event') return `Move to ${target.event.title}`
-    return 'Nothing matches today — add it as its own task'
-  }
-
-  // Resolve every destination against one snapshot, then write once per
-  // destination. Same clobbering reason as clearFromOriginalDay.
-  const carryMoveMany = async (items, { done = false } = {}) => {
-    const intoTask = new Map()    // taskId → subtasks to append
-    const intoEvent = new Map()   // eventId → { event, titles }
-    const standalone = []
-    for (const item of items) {
-      const target = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
-      if (target?.kind === 'task') {
-        if (!intoTask.has(target.task.id)) intoTask.set(target.task.id, [])
-        intoTask.get(target.task.id).push({ id: newSubId(), title: item.title, done })
-      } else if (target?.kind === 'event') {
-        if (!intoEvent.has(target.event.id)) intoEvent.set(target.event.id, { event: target.event, titles: [] })
-        intoEvent.get(target.event.id).titles.push(item.title)
-      } else {
-        standalone.push(item)
-      }
-    }
+  // File a parked item against something on today. Only resolve it once the
+  // write has landed, so a failure leaves it in Carryover rather than losing it
+  // between two places.
+  const fileCarryover = async (item, targetKey) => {
+    const [kind, ...rest] = String(targetKey).split(':')
+    const targetId = rest.join(':')
     try {
-      for (const [taskId, subs] of intoTask) {
-        const t = tasks.find(x => x.id === taskId)
-        if (!t) continue
-        await updateTask(taskId, { subtasks: [...(t.subtasks || []), ...subs] })
-      }
-      for (const [eventId, { event, titles }] of intoEvent) {
-        const existing = eventNotes[eventId]?.subtasks || []
+      if (kind === 'task') {
+        const t = tasks.find(x => x.id === targetId)
+        if (!t) return
+        await updateTask(targetId, {
+          subtasks: [...(t.subtasks || []), { id: newSubId(), title: item.title, done: false }],
+        })
+      } else {
+        const ev = dayEvents.find(e => e.id === targetId)
+        if (!ev) return
         setEventSubtasks(
-          { id: eventId, title: event.title, date: event.date, time: event.time ?? null },
-          [...existing, ...titles.map(title => ({ id: newSubId(), title, done }))],
+          { id: ev.id, title: ev.title, date: ev.date, time: ev.time ?? null },
+          [...(eventNotes[ev.id]?.subtasks || []), { id: newSubId(), title: item.title, done: false }],
         )
       }
-      // No home today: the step becomes a to-do in its own right rather than
-      // silently going nowhere.
-      for (const item of standalone) {
-        await addTask({ title: item.title, date: todayISO, completed: done })
-      }
     } catch (e) {
-      // updateTask/addTask already surfaced this in the error banner. Bail
-      // before clearing, so a failed move leaves the leftover on its original
-      // day rather than deleting it with nowhere to have landed.
-      console.error('Carry-over move failed:', e)
+      // updateTask already surfaced this in the error banner.
+      console.error('Filing carryover failed:', e)
       return
     }
-    clearFromOriginalDay(items)
+    resolveCarryover(item)
   }
 
-  const carryOverProps = isTodayView && carryItems.length > 0
+  const carryOverProps = isTodayView && carryoverItems.length > 0
     ? {
-      items: carryItems,
-      targetLabelFor: carryTargetLabel,
-      // Done lands on today, not on the day it was planned — the work happened
-      // today, so today is where it counts.
-      onComplete: (item) => carryMoveMany([item], { done: true }),
-      onMove: (item) => carryMoveMany([item]),
-      onMoveAll: () => carryMoveMany(carryItems),
-      onDismiss: (item) => clearFromOriginalDay([item]),
+      items: carryoverItems,
+      targets: todayTargets({ tasks, events: dayEvents, todayISO }),
+      suggestedKeyFor: (item) => {
+        const hit = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
+        if (hit?.kind === 'task') return `task:${hit.task.id}`
+        if (hit?.kind === 'event') return `event:${hit.event.id}`
+        return null
+      },
+      onFile: fileCarryover,
+      onDrop: resolveCarryover,
     }
     : null
 

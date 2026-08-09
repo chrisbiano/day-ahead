@@ -6,23 +6,30 @@
  * day by hand, which only works on the days you remember to do it — and the
  * days you run out of time are exactly the days you don't.
  *
- * So the leftovers come to you instead. This module finds them; the UI decides
- * what to offer.
+ * So they come to you instead. Anything still owed on a day that has passed is
+ * PARKED into Carryover: cleared off that day (a finished day should list what
+ * was accomplished, not a mix of wins and misses) and held in one place until
+ * it's matched to a task or dropped.
  *
- * Acting on one always removes it from the day it was planned. That's the point
- * of the manual routine this replaces: a finished day should show exactly what
- * was accomplished, not a mix of wins and things that slipped. Completing a
- * leftover therefore records it on TODAY — that's the day the work happened.
+ * Parking is what closes the hole in the first design, which forced a
+ * destination at the moment you acted and invented a standalone task when
+ * nothing matched — putting the item beyond the reach of this system entirely.
+ * Carryover has no deadline, so an item can wait unrouted without escaping.
+ *
+ * This module finds what to park and where a parked item could go; the hooks
+ * own the parking itself, and the UI decides what to offer.
  *
  * Subtasks live in two places — a task's own `subtasks` array and a calendar
  * block's Day Ahead note — and both are already loaded in full (neither hook
  * filters by date), so this is a pure read over state that's in memory.
  */
 
-// Past this, a carry-over list stops being a to-do and becomes a wall of shame
-// you learn to scroll past. Older leftovers are never deleted — just no longer
-// carried, and still on the day they belong to.
-export const CARRY_LOOKBACK_DAYS = 7
+/* How far back the sweep reaches when parking. This is NOT how long an item
+   survives — once parked it sits in Carryover until it's dealt with, however
+   long that takes. The window only bounds what gets pulled in from history, so
+   turning the feature on doesn't suddenly rake up months of old misses. 30 days
+   matches the retention the app already uses for deleted tasks and subtasks. */
+export const CARRY_LOOKBACK_DAYS = 30
 
 // ISO day arithmetic anchored at local noon, so a DST jump can't land the
 // result on the neighbouring day.
@@ -43,11 +50,14 @@ export function isPending(sub) {
   return Boolean(sub) && !sub.done && !sub.deletedAt
 }
 
-// 'Yesterday' beats 'Thu' at one day out; past that the weekday is the useful
-// handle. Beyond a week it'd be ambiguous, but the lookback stops first.
+/* 'Yesterday' beats 'Thu' at one day out; inside the week the weekday is the
+   useful handle. Older than that a weekday is ambiguous — and a parked item can
+   sit for a long time — so it falls back to a date. */
 export function agoLabel(iso, todayISO) {
   if (iso === shiftISO(todayISO, -1)) return 'Yesterday'
-  return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' })
+  const d = new Date(`${iso}T12:00:00`)
+  if (iso > shiftISO(todayISO, -7)) return d.toLocaleDateString(undefined, { weekday: 'short' })
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 /**
@@ -65,8 +75,9 @@ export function carryOverItems({
   lookbackDays = CARRY_LOOKBACK_DAYS,
 } = {}) {
   if (!todayISO) return []
-  const floor = shiftISO(todayISO, -lookbackDays)
-  const inWindow = (date) => Boolean(date) && date < todayISO && date >= floor
+  const floor = lookbackDays == null ? null : shiftISO(todayISO, -lookbackDays)
+  const inWindow = (date) =>
+    Boolean(date) && date < todayISO && (floor === null || date >= floor)
   const out = []
 
   for (const t of tasks) {
@@ -111,6 +122,25 @@ export function carryOverItems({
   // together rather than interleaved with another's.
   return out.sort((a, b) =>
     b.date.localeCompare(a.date) || a.parentTitle.localeCompare(b.parentTitle))
+}
+
+/**
+ * Everywhere a parked item could be filed today — the day's tasks and its timed
+ * calendar blocks. Completed tasks are included on purpose: filing a step under
+ * a block you've already wrapped up is a reasonable thing to want, and it's the
+ * suggestion logic's job to avoid picking one by default.
+ */
+export function todayTargets({ tasks = [], events = [], todayISO } = {}) {
+  const out = []
+  for (const t of tasks) {
+    if (t.date !== todayISO || t.deletedAt) continue
+    out.push({ key: `task:${t.id}`, label: t.title })
+  }
+  for (const e of events) {
+    if (e.allDay) continue
+    out.push({ key: `event:${e.id}`, label: e.title })
+  }
+  return out
 }
 
 /**

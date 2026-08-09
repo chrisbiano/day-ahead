@@ -224,7 +224,53 @@ export default function useEventNotes() {
     const out = []
     for (const [id, n] of Object.entries(notes)) {
       for (const s of n.subtasks || []) {
+        // Parked carryover isn't deleted — it's waiting in its own section.
+        if (s.leftover) continue
         if (s.deletedAt) out.push({ key: `${id}:${s.id}`, eventId: id, parentTitle: n.title, sub: s })
+      }
+    }
+    return out
+  }, [notes])
+
+  /* ---- Carryover ----
+     Mirrors the task-side treatment: an unfinished checklist step on a day
+     that's passed is stamped deletedAt (so it leaves that day) plus `leftover`
+     (so it lands in Carryover rather than "Recently deleted"). Batched by event
+     for the same reason as everywhere else — one write per parent, or each
+     rebuild clobbers the last. */
+  const parkLeftovers = useCallback((byEventId) => {
+    const deletedAt = new Date().toISOString()
+    for (const [eventId, ids] of byEventId) {
+      const cur = notesRef.current[eventId]
+      if (!cur) continue
+      persist({ id: eventId, title: cur.title, date: cur.date, time: cur.time }, {
+        ...cur,
+        subtasks: (cur.subtasks || []).map(s => (
+          ids.has(s.id) ? { ...s, deletedAt, leftover: true } : s
+        )),
+      })
+    }
+  }, [persist])
+
+  const resolveLeftover = useCallback((eventId, subId) => {
+    const cur = notesRef.current[eventId]
+    if (!cur) return
+    const deletedAt = new Date().toISOString()
+    persist({ id: eventId, title: cur.title, date: cur.date, time: cur.time }, {
+      ...cur,
+      subtasks: (cur.subtasks || []).map(s => (
+        s.id === subId ? { ...s, leftover: false, deletedAt } : s
+      )),
+    })
+  }, [persist])
+
+  const leftoverSubtasks = useMemo(() => {
+    const out = []
+    for (const [id, n] of Object.entries(notes)) {
+      for (const s of n.subtasks || []) {
+        if (s.leftover && !s.done) {
+          out.push({ parentId: id, parentTitle: n.title, date: n.date, sub: s })
+        }
       }
     }
     return out
@@ -233,5 +279,6 @@ export default function useEventNotes() {
   return {
     notes: visibleNotes, loading, refresh, addSubtask, toggleSubtask, removeSubtask, toggleHidden,
     restoreSubtask, deletedSubtasks, setSubtasks, toggleDone, backfillContext,
+    parkLeftovers, resolveLeftover, leftoverSubtasks,
   }
 }

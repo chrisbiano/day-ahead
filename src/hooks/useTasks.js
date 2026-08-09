@@ -477,6 +477,8 @@ export default function useTasks() {
     const out = []
     for (const t of tasks) {
       for (const s of t.subtasks || []) {
+        // Parked carryover isn't deleted — it's waiting in its own section.
+        if (s.leftover) continue
         if (s.deletedAt && new Date(s.deletedAt).getTime() > cutoff) {
           out.push({ key: `${t.id}:${s.id}`, taskId: t.id, taskTitle: t.title, sub: s })
         }
@@ -485,12 +487,58 @@ export default function useTasks() {
     return out.sort((a, b) => new Date(b.sub.deletedAt) - new Date(a.sub.deletedAt))
   }, [tasks])
 
+  /* ---- Carryover ----
+     An unfinished subtask on a day that has passed gets PARKED: stamped
+     deletedAt, so it leaves that day (a finished day should list what actually
+     got done), plus a `leftover` marker that routes it to the Carryover section
+     rather than "Recently deleted". Resolving one drops the marker, at which
+     point it's an ordinary deleted subtask and restorable like any other.
+
+     Both mutators take every id for a parent at once. A write per subtask would
+     clobber, since each rebuilds the array from state that hasn't caught up. */
+  const parkLeftovers = useCallback((byTaskId) => {
+    const deletedAt = new Date().toISOString()
+    for (const [taskId, ids] of byTaskId) {
+      const t = tasksRef.current.find(x => x.id === taskId)
+      if (!t) continue
+      updateTask(taskId, {
+        subtasks: (t.subtasks || []).map(s => (
+          ids.has(s.id) ? { ...s, deletedAt, leftover: true } : s
+        )),
+      })
+    }
+  }, [updateTask])
+
+  const resolveLeftover = useCallback((taskId, subId) => {
+    const t = tasksRef.current.find(x => x.id === taskId)
+    if (!t) return
+    const deletedAt = new Date().toISOString()
+    updateTask(taskId, {
+      subtasks: (t.subtasks || []).map(s => (
+        s.id === subId ? { ...s, leftover: false, deletedAt } : s
+      )),
+    })
+  }, [updateTask])
+
+  const leftoverSubtasks = useMemo(() => {
+    const out = []
+    for (const t of tasks) {
+      for (const s of t.subtasks || []) {
+        if (s.leftover && !s.done) {
+          out.push({ parentId: t.id, parentTitle: t.title, date: t.date, sub: s })
+        }
+      }
+    }
+    return out
+  }, [tasks])
+
   return {
     tasks: visibleTasks, loading, error, clearError: () => setError(null),
     refresh,
     addTask, updateTask, deleteTask, deleteSeries, duplicateTask, reorderTasks,
     deletedTasks, restoreTask, undoableDelete, undoDelete, dismissUndoDelete,
     deleteSubtask, restoreSubtask, deletedSubtasks,
+    parkLeftovers, resolveLeftover, leftoverSubtasks,
     toggleReminder, snoozeTask, unsnoozeTask, toggleComplete, toggleSubtask,
   }
 }

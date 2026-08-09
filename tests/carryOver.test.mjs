@@ -1,7 +1,7 @@
 /* Pure-logic tests for the carry-over selector.  Run:  node tests/carryOver.test.mjs  */
 import assert from 'node:assert/strict'
 import {
-  carryOverItems, findTodayTarget, shiftISO, agoLabel, isPending, CARRY_LOOKBACK_DAYS,
+  carryOverItems, findTodayTarget, todayTargets, shiftISO, agoLabel, isPending, CARRY_LOOKBACK_DAYS,
 } from '../src/lib/carryOver.js'
 
 const TODAY = '2026-08-08'
@@ -16,7 +16,37 @@ t('shiftISO crosses month and year boundaries', () => {
   assert.equal(shiftISO('2026-08-01', -1), '2026-07-31')
   assert.equal(shiftISO('2026-01-01', -1), '2025-12-31')
   assert.equal(shiftISO('2026-03-08', -1), '2026-03-07')  // US DST spring-forward
-  assert.equal(shiftISO(TODAY, -CARRY_LOOKBACK_DAYS), '2026-08-01')
+  assert.equal(shiftISO(TODAY, -7), '2026-08-01')
+  assert.equal(shiftISO(TODAY, -CARRY_LOOKBACK_DAYS), '2026-07-09')
+})
+
+t('a null lookback sweeps all of history', () => {
+  const ancient = '2020-01-01'
+  const tasks = [task({ id: 'a', date: ancient, subtasks: [sub('s1', 'Very old') ] })]
+  assert.deepEqual(carryOverItems({ tasks, todayISO: TODAY }).map(i => i.title), [])
+  assert.deepEqual(
+    carryOverItems({ tasks, todayISO: TODAY, lookbackDays: null }).map(i => i.title),
+    ['Very old'],
+  )
+})
+
+t('todayTargets lists the day\'s tasks and timed blocks only', () => {
+  const tasks = [
+    { id: 't1', title: 'LS Prep', date: TODAY },
+    { id: 't2', title: 'Done already', date: TODAY, completed: true },
+    { id: 't3', title: 'Yesterday', date: YDAY },
+    { id: 't4', title: 'Gone', date: TODAY, deletedAt: 'x' },
+  ]
+  const events = [{ id: 'e1', title: 'Client Work' }, { id: 'e2', title: 'Birthday', allDay: true }]
+  assert.deepEqual(
+    todayTargets({ tasks, events, todayISO: TODAY }),
+    [
+      { key: 'task:t1', label: 'LS Prep' },
+      // Completed stays selectable — only the SUGGESTION skips it.
+      { key: 'task:t2', label: 'Done already' },
+      { key: 'event:e1', label: 'Client Work' },
+    ],
+  )
 })
 
 t('isPending ignores done and deleted subtasks', () => {
@@ -68,6 +98,8 @@ t('includes calendar-block notes and sorts newest day first', () => {
 t('agoLabel says Yesterday at one day out, weekday beyond', () => {
   assert.equal(agoLabel(YDAY, TODAY), 'Yesterday')
   assert.equal(agoLabel('2026-08-04', TODAY), 'Tue')
+  // Older than a week a weekday is ambiguous, and a parked item can sit a while.
+  assert.equal(agoLabel('2026-07-20', TODAY), 'Jul 20')
 })
 
 t('findTodayTarget prefers the series row over a title match', () => {
