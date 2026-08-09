@@ -1,5 +1,6 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import SectionHeader from './SectionHeader'
+import CarryOver from './CarryOver'
 import TaskForm from './TaskForm'
 import ViewSwitcher from './ViewSwitcher'
 import SortableSubtasks from './SortableSubtasks'
@@ -253,6 +254,7 @@ export default function Timeline({
   highlightId,
   view,
   onChangeView,
+  carryOver,
 }) {
   const [addingFor, setAddingFor] = useState(null)  // event id with an open input
   const [draft, setDraft] = useState('')
@@ -841,6 +843,10 @@ export default function Timeline({
               ? `${events.length} calendar event${events.length === 1 ? '' : 's'} ${isToday ? 'today' : 'this day'}`
               : `No calendar events ${isToday ? 'today' : 'on this day'}`}
       </p>
+
+      {/* Leftovers first — the whole point is that they're in front of you
+          before you start planning around them. Only ever passed for today. */}
+      {carryOver && <CarryOver {...carryOver} />}
 
       {/* All-day events, banded across the top. They own no slot on the clock, so
           putting them in the timeline would either fake a start time or bury them

@@ -14,6 +14,7 @@ import WeekView from './components/WeekView'
 import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
 import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
+import { carryOverItems, findTodayTarget } from './lib/carryOver'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -626,7 +627,8 @@ export default function App() {
 
   // Dated tasks belong to their day. A general task (no date) just lives under
   // Today's tasks until it's done.
-  const isTodayView = selectedISO === toISODate(new Date())
+  const todayISO = toISODate(new Date())
+  const isTodayView = selectedISO === todayISO
   const dayTasks = tasks.filter(t => t.date === selectedISO || (!t.date && isTodayView))
   const visibleTasks = settings.hideCompleted
     ? dayTasks.filter(t => !t.completed)
@@ -634,6 +636,113 @@ export default function App() {
   // Timed tasks live on the schedule only (they have a slot there); the task list
   // is for the untimed "whenever" to-dos. Keeps the two from doubling up.
   const untimedTasks = visibleTasks.filter(t => !t.time)
+
+  /* ---- Leftovers: unfinished subtasks from earlier days ----
+     Every action reaches back to the ORIGINAL subtask. Completing marks it done
+     on the day it was planned; moving or waving it off stamps `carriedAt`
+     WITHOUT marking it done, so an unfinished Tuesday still reads as unfinished
+     — the list stops nagging without rewriting history. */
+  const carryItems = carryOverItems({ tasks, eventNotes, todayISO })
+
+  const newSubId = () =>
+    (crypto?.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`)
+
+  const eventRefFor = (item) => ({
+    id: item.parentId, title: item.parentTitle, date: item.date, time: item.parentTime,
+  })
+
+  // Grouped by parent: several leftovers routinely come from one block, and a
+  // write per subtask would have each one clobbering the last (both hooks build
+  // the new array from state that hasn't caught up yet).
+  const settleCarried = (items) => {
+    const carriedAt = new Date().toISOString()
+    const byTask = new Map()
+    const byEvent = new Map()
+    for (const item of items) {
+      const bucket = item.source === 'task' ? byTask : byEvent
+      if (!bucket.has(item.parentId)) bucket.set(item.parentId, { item, ids: new Set() })
+      bucket.get(item.parentId).ids.add(item.subtaskId)
+    }
+    for (const [taskId, { ids }] of byTask) {
+      const t = tasks.find(x => x.id === taskId)
+      if (!t) continue
+      updateTask(taskId, {
+        subtasks: (t.subtasks || []).map(s => (ids.has(s.id) ? { ...s, carriedAt } : s)),
+      })
+    }
+    for (const [eventId, { item, ids }] of byEvent) {
+      const note = eventNotes[eventId]
+      if (!note) continue
+      setEventSubtasks(eventRefFor(item),
+        (note.subtasks || []).map(s => (ids.has(s.id) ? { ...s, carriedAt } : s)))
+    }
+  }
+
+  const carryTargetLabel = (item) => {
+    const target = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
+    if (target?.kind === 'task') return `Move to ${target.task.title}`
+    if (target?.kind === 'event') return `Move to ${target.event.title}`
+    return 'Nothing matches today — add it as its own task'
+  }
+
+  // Resolve every destination against one snapshot, then write once per
+  // destination. Same clobbering reason as settleCarried.
+  const carryMoveMany = async (items) => {
+    const intoTask = new Map()    // taskId → subtasks to append
+    const intoEvent = new Map()   // eventId → { event, titles }
+    const standalone = []
+    for (const item of items) {
+      const target = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
+      if (target?.kind === 'task') {
+        if (!intoTask.has(target.task.id)) intoTask.set(target.task.id, [])
+        intoTask.get(target.task.id).push({ id: newSubId(), title: item.title, done: false })
+      } else if (target?.kind === 'event') {
+        if (!intoEvent.has(target.event.id)) intoEvent.set(target.event.id, { event: target.event, titles: [] })
+        intoEvent.get(target.event.id).titles.push(item.title)
+      } else {
+        standalone.push(item)
+      }
+    }
+    try {
+      for (const [taskId, subs] of intoTask) {
+        const t = tasks.find(x => x.id === taskId)
+        if (!t) continue
+        await updateTask(taskId, { subtasks: [...(t.subtasks || []), ...subs] })
+      }
+      for (const [eventId, { event, titles }] of intoEvent) {
+        const existing = eventNotes[eventId]?.subtasks || []
+        setEventSubtasks(
+          { id: eventId, title: event.title, date: event.date, time: event.time ?? null },
+          [...existing, ...titles.map(title => ({ id: newSubId(), title, done: false }))],
+        )
+      }
+      // No home today: the step becomes a to-do in its own right rather than
+      // silently going nowhere.
+      for (const item of standalone) {
+        await addTask({ title: item.title, date: todayISO })
+      }
+    } catch (e) {
+      // updateTask/addTask already surfaced this in the error banner. Bail
+      // before settling so a failed move leaves the leftover where it was
+      // rather than quietly marking it dealt with.
+      console.error('Carry-over move failed:', e)
+      return
+    }
+    settleCarried(items)
+  }
+
+  const carryOverProps = isTodayView && carryItems.length > 0
+    ? {
+      items: carryItems,
+      targetLabelFor: carryTargetLabel,
+      onComplete: (item) => (item.source === 'task'
+        ? toggleSubtask(item.parentId, item.subtaskId)
+        : toggleEventSubtask(eventRefFor(item), item.subtaskId)),
+      onMove: (item) => carryMoveMany([item]),
+      onMoveAll: () => carryMoveMany(carryItems),
+      onDismiss: (item) => settleCarried([item]),
+    }
+    : null
 
   return (
     <Layout
@@ -760,6 +869,7 @@ export default function App() {
             onToggleComplete={toggleComplete}
             view={view}
             onChangeView={setView}
+            carryOver={carryOverProps}
           />
           </div>
         ) : view === 'week' ? (
