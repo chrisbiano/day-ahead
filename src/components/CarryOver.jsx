@@ -23,6 +23,15 @@ export default function CarryOver({
   onDrop,
 }) {
   const [expanded, setExpanded] = useState(false)
+  // Titles are truncated to keep rows scannable, but a long one is unreadable
+  // on a phone — tapping it wraps the full text.
+  const [openTitles, setOpenTitles] = useState(() => new Set())
+  const toggleTitle = (key) => setOpenTitles(prev => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
   if (items.length === 0) return null
 
   const shown = expanded ? items : items.slice(0, COLLAPSED)
@@ -42,39 +51,55 @@ export default function CarryOver({
       <ul className="divide-y divide-line">
         {shown.map(item => {
           const suggested = suggestedKeyFor?.(item) ?? null
+          const titleOpen = openTitles.has(item.key)
           return (
-            <li key={item.key} className="flex items-center gap-3 px-5 py-2.5">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm text-fg truncate">{item.title}</span>
-                <span className="block text-[11px] text-faint truncate">
-                  {item.parentTitle}{item.ago ? ` · ${item.ago}` : ''}
+              /* Stacked on a phone, one row from sm up. Crowding a select and a
+                 button onto the same line as the text left nothing to give at
+                 narrow widths, and the select rode over its neighbour. */
+              <li
+                key={item.key}
+                className="px-5 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
+              >
+                <button
+                  onClick={() => toggleTitle(item.key)}
+                  aria-expanded={titleOpen}
+                  title={titleOpen ? 'Collapse' : 'Show the full title'}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className={`block text-sm text-fg ${titleOpen ? 'break-words' : 'truncate'}`}>
+                    {item.title}
+                  </span>
+                  <span className="block text-[11px] text-faint truncate">
+                    {item.parentTitle}{item.ago ? ` · ${item.ago}` : ''}
+                  </span>
+                </button>
+
+                <span className="flex items-center gap-2 shrink-0">
+                  {/* Value stays on the suggestion so the select reads as a
+                      destination, not an empty prompt. Choosing files
+                      immediately — no separate confirm to forget. */}
+                  <select
+                    value={suggested ?? ''}
+                    onChange={e => { if (e.target.value) onFile(item, e.target.value) }}
+                    aria-label={`Add "${item.title}" to a task today`}
+                    className="input py-1 text-xs min-w-0 flex-1 sm:flex-none sm:w-40"
+                  >
+                    <option value="">Add to…</option>
+                    {targets.map(t => (
+                      <option key={t.key} value={t.key}>{t.label}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={() => onDrop(item)}
+                    aria-label={`Drop "${item.title}"`}
+                    title="Not happening — drop it (restorable from Recently deleted)"
+                    className="w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
+                  >
+                    ×
+                  </button>
                 </span>
-              </span>
-
-              {/* Value stays on the suggestion so the select reads as a
-                  destination, not an empty prompt. Choosing files immediately —
-                  there's no separate confirm to forget. */}
-              <select
-                value={suggested ?? ''}
-                onChange={e => { if (e.target.value) onFile(item, e.target.value) }}
-                aria-label={`Add "${item.title}" to a task today`}
-                className="input py-1 text-xs max-w-[9rem] shrink-0"
-              >
-                <option value="">Add to…</option>
-                {targets.map(t => (
-                  <option key={t.key} value={t.key}>{t.label}</option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => onDrop(item)}
-                aria-label={`Drop "${item.title}"`}
-                title="Not happening — drop it (restorable from Recently deleted)"
-                className="w-5 h-5 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
-              >
-                ×
-              </button>
-            </li>
+              </li>
           )
         })}
       </ul>
