@@ -638,10 +638,14 @@ export default function App() {
   const untimedTasks = visibleTasks.filter(t => !t.time)
 
   /* ---- Leftovers: unfinished subtasks from earlier days ----
-     Every action reaches back to the ORIGINAL subtask. Completing marks it done
-     on the day it was planned; moving or waving it off stamps `carriedAt`
-     WITHOUT marking it done, so an unfinished Tuesday still reads as unfinished
-     — the list stops nagging without rewriting history. */
+     All three actions clear the subtask off the day it was planned, which is
+     the habit this replaces: copy forward, then go back and delete the misses
+     so a finished day shows exactly what got accomplished. Completing one here
+     records it on TODAY for the same reason — that's the day the work happened,
+     and yesterday shouldn't take the credit.
+
+     Clearing is the app's existing soft delete (`deletedAt` in place), so a
+     leftover stays restorable from "Recently deleted" like any other subtask. */
   const carryItems = carryOverItems({ tasks, eventNotes, todayISO })
 
   const newSubId = () =>
@@ -654,8 +658,8 @@ export default function App() {
   // Grouped by parent: several leftovers routinely come from one block, and a
   // write per subtask would have each one clobbering the last (both hooks build
   // the new array from state that hasn't caught up yet).
-  const settleCarried = (items) => {
-    const carriedAt = new Date().toISOString()
+  const clearFromOriginalDay = (items) => {
+    const deletedAt = new Date().toISOString()
     const byTask = new Map()
     const byEvent = new Map()
     for (const item of items) {
@@ -667,14 +671,14 @@ export default function App() {
       const t = tasks.find(x => x.id === taskId)
       if (!t) continue
       updateTask(taskId, {
-        subtasks: (t.subtasks || []).map(s => (ids.has(s.id) ? { ...s, carriedAt } : s)),
+        subtasks: (t.subtasks || []).map(s => (ids.has(s.id) ? { ...s, deletedAt } : s)),
       })
     }
     for (const [eventId, { item, ids }] of byEvent) {
       const note = eventNotes[eventId]
       if (!note) continue
       setEventSubtasks(eventRefFor(item),
-        (note.subtasks || []).map(s => (ids.has(s.id) ? { ...s, carriedAt } : s)))
+        (note.subtasks || []).map(s => (ids.has(s.id) ? { ...s, deletedAt } : s)))
     }
   }
 
@@ -686,8 +690,8 @@ export default function App() {
   }
 
   // Resolve every destination against one snapshot, then write once per
-  // destination. Same clobbering reason as settleCarried.
-  const carryMoveMany = async (items) => {
+  // destination. Same clobbering reason as clearFromOriginalDay.
+  const carryMoveMany = async (items, { done = false } = {}) => {
     const intoTask = new Map()    // taskId → subtasks to append
     const intoEvent = new Map()   // eventId → { event, titles }
     const standalone = []
@@ -695,7 +699,7 @@ export default function App() {
       const target = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
       if (target?.kind === 'task') {
         if (!intoTask.has(target.task.id)) intoTask.set(target.task.id, [])
-        intoTask.get(target.task.id).push({ id: newSubId(), title: item.title, done: false })
+        intoTask.get(target.task.id).push({ id: newSubId(), title: item.title, done })
       } else if (target?.kind === 'event') {
         if (!intoEvent.has(target.event.id)) intoEvent.set(target.event.id, { event: target.event, titles: [] })
         intoEvent.get(target.event.id).titles.push(item.title)
@@ -713,34 +717,34 @@ export default function App() {
         const existing = eventNotes[eventId]?.subtasks || []
         setEventSubtasks(
           { id: eventId, title: event.title, date: event.date, time: event.time ?? null },
-          [...existing, ...titles.map(title => ({ id: newSubId(), title, done: false }))],
+          [...existing, ...titles.map(title => ({ id: newSubId(), title, done }))],
         )
       }
       // No home today: the step becomes a to-do in its own right rather than
       // silently going nowhere.
       for (const item of standalone) {
-        await addTask({ title: item.title, date: todayISO })
+        await addTask({ title: item.title, date: todayISO, completed: done })
       }
     } catch (e) {
       // updateTask/addTask already surfaced this in the error banner. Bail
-      // before settling so a failed move leaves the leftover where it was
-      // rather than quietly marking it dealt with.
+      // before clearing, so a failed move leaves the leftover on its original
+      // day rather than deleting it with nowhere to have landed.
       console.error('Carry-over move failed:', e)
       return
     }
-    settleCarried(items)
+    clearFromOriginalDay(items)
   }
 
   const carryOverProps = isTodayView && carryItems.length > 0
     ? {
       items: carryItems,
       targetLabelFor: carryTargetLabel,
-      onComplete: (item) => (item.source === 'task'
-        ? toggleSubtask(item.parentId, item.subtaskId)
-        : toggleEventSubtask(eventRefFor(item), item.subtaskId)),
+      // Done lands on today, not on the day it was planned — the work happened
+      // today, so today is where it counts.
+      onComplete: (item) => carryMoveMany([item], { done: true }),
       onMove: (item) => carryMoveMany([item]),
       onMoveAll: () => carryMoveMany(carryItems),
-      onDismiss: (item) => settleCarried([item]),
+      onDismiss: (item) => clearFromOriginalDay([item]),
     }
     : null
 

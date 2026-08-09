@@ -2,11 +2,11 @@ import { useState } from 'react'
 
 /* Unfinished subtasks from earlier days, surfaced at the top of today.
  *
- * Every action here reaches back to the ORIGINAL subtask rather than making a
- * copy and forgetting the source — see App's carry-over handlers. Checking one
- * off marks it done on the day it was planned; moving or waving it off leaves
- * it unfinished there and only stops it being carried. Yesterday's record stays
- * true either way.
+ * All three actions clear the step off the day it was planned, so a finished
+ * day lists what actually got done. Done and Move both bring it to today (Done
+ * arrives ticked, since today is when the work happened); x just clears it.
+ * Clearing is a soft delete, so anything here is restorable from
+ * "Recently deleted".
  *
  * Buttons are labelled with words, not just icons: the hide control taught us
  * that an icon doing double duty reads as a status rather than an action.
@@ -61,12 +61,12 @@ export default function CarryOver({
       <ul className="divide-y divide-line">
         {shown.map(item => (
           <li key={item.key} className="flex items-center gap-3 px-5 py-2.5">
-            {/* Same affordance as any other checkbox in the app: this completes
-                the step where it was planned, it doesn't move it. */}
+            {/* Same affordance as any other checkbox in the app. Completing
+                lands the step on today, ticked — it's today's accomplishment. */}
             <button
               onClick={() => onComplete(item)}
-              aria-label={`Mark "${item.title}" done`}
-              title="Mark done"
+              aria-label={`Mark "${item.title}" done today`}
+              title="Done — records it on today"
               className="w-4 h-4 rounded-full border border-line2 text-transparent hover:text-accent hover:border-accent flex items-center justify-center transition-colors shrink-0"
             >
               <CheckIcon />
@@ -88,8 +88,8 @@ export default function CarryOver({
             </button>
             <button
               onClick={() => onDismiss(item)}
-              aria-label={`Stop carrying "${item.title}"`}
-              title="Not doing this — stop carrying it"
+              aria-label={`Drop "${item.title}"`}
+              title="Didn't happen — clear it (restorable from Recently deleted)"
               className="w-5 h-5 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
             >
               ×

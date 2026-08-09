@@ -19,11 +19,12 @@ t('shiftISO crosses month and year boundaries', () => {
   assert.equal(shiftISO(TODAY, -CARRY_LOOKBACK_DAYS), '2026-08-01')
 })
 
-t('isPending ignores done, deleted and already-carried subtasks', () => {
+t('isPending ignores done and deleted subtasks', () => {
   assert.equal(isPending(sub('1', 'a')), true)
   assert.equal(isPending(sub('1', 'a', { done: true })), false)
+  // Acting on a leftover soft-deletes it from its original day, so deletedAt is
+  // also what stops it being carried again.
   assert.equal(isPending(sub('1', 'a', { deletedAt: '2026-08-07T10:00:00Z' })), false)
-  assert.equal(isPending(sub('1', 'a', { carriedAt: '2026-08-08T09:00:00Z' })), false)
 })
 
 t('collects only unfinished subtasks from before today', () => {

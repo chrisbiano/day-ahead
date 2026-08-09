@@ -9,6 +9,11 @@
  * So the leftovers come to you instead. This module finds them; the UI decides
  * what to offer.
  *
+ * Acting on one always removes it from the day it was planned. That's the point
+ * of the manual routine this replaces: a finished day should show exactly what
+ * was accomplished, not a mix of wins and things that slipped. Completing a
+ * leftover therefore records it on TODAY — that's the day the work happened.
+ *
  * Subtasks live in two places — a task's own `subtasks` array and a calendar
  * block's Day Ahead note — and both are already loaded in full (neither hook
  * filters by date), so this is a pure read over state that's in memory.
@@ -28,12 +33,14 @@ export function shiftISO(iso, delta) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/* Still owed: not done, not deleted, and not already dealt with here.
-   `carriedAt` is stamped when a leftover is moved forward or waved off. It
-   deliberately does NOT mark the subtask done — the record of an unfinished
-   Tuesday should stay unfinished. It only means "stop bringing this up". */
+/* Still owed: not done and not deleted.
+   Dealing with a leftover soft-deletes it from the day it was planned — a
+   finished day should list what actually got done and nothing else, which is
+   the habit this replaces (copy forward, then go back and delete the misses).
+   `deletedAt` is what the rest of the app already uses to hide a subtask while
+   keeping it restorable, so there's no second concept here. */
 export function isPending(sub) {
-  return Boolean(sub) && !sub.done && !sub.deletedAt && !sub.carriedAt
+  return Boolean(sub) && !sub.done && !sub.deletedAt
 }
 
 // 'Yesterday' beats 'Thu' at one day out; past that the weekday is the useful
