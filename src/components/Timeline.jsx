@@ -259,37 +259,13 @@ export default function Timeline({
   const [addingTask, setAddingTask] = useState(false)
   const [snoozeFor, setSnoozeFor] = useState(null)  // task id whose snooze picker is open
   const [editingTask, setEditingTask] = useState(null)  // full task being edited in the form
-  const [showHidden, setShowHidden] = useState(false)   // reveal hidden calendar events
-  // While hidden events are revealed, hiding one has to make it LEAVE. Without
-  // this it only grew a "hidden" label and sat there, so the button read as
-  // broken. Ids land here on hide and are dropped from view immediately; the
-  // reveal button clears the set, so they come back if you go looking.
-  const [justHidden, setJustHidden] = useState(() => new Set())
+  // Hidden events never render in the schedule — they sit in a tray beneath it.
+  // Showing them inline wearing a "hidden" label meant the eye button took two
+  // clicks to hide something and read as a status rather than an action.
+  const [showHiddenTray, setShowHiddenTray] = useState(false)
 
-  const isVisible = (e) => {
-    if (!eventNotes[e.id]?.hidden) return true
-    return showHidden && !justHidden.has(e.id)
-  }
-
-  const hiddenCount = events.filter(e => eventNotes[e.id]?.hidden).length
-  // Hidden events actually on screen right now — drives the footer button, so
-  // re-hiding the last revealed one turns it back into "N hidden".
-  const revealedCount = showHidden
-    ? events.filter(e => eventNotes[e.id]?.hidden && !justHidden.has(e.id)).length
-    : 0
-
-  const handleToggleEventHidden = (ctx) => {
-    if (!onToggleEventHidden) return
-    const wasHidden = Boolean(eventNotes[ctx.id]?.hidden)
-    setJustHidden(prev => {
-      const next = new Set(prev)
-      // Un-hiding means they want it back on the schedule — let it stay put.
-      if (wasHidden) next.delete(ctx.id)
-      else next.add(ctx.id)
-      return next
-    })
-    onToggleEventHidden(ctx)
-  }
+  const isVisible = (e) => !eventNotes[e.id]?.hidden
+  const hiddenEvents = events.filter(e => eventNotes[e.id]?.hidden)
 
   // All-day events: no time, so they sit above the schedule rather than in it.
   const allDayEvents = events.filter(e => e.allDay).filter(isVisible)
@@ -486,21 +462,16 @@ export default function Timeline({
             overlap
           </span>
         )}
-        {item.hidden && (
-          <span className="text-[10px] text-faint border border-line2 rounded px-1.5 py-0.5 whitespace-nowrap">
-            hidden
-          </span>
-        )}
         {/* Take a calendar event off the schedule. Google keeps it; you just
             stop looking at it. */}
         {item.kind === 'event' && onToggleEventHidden && (
           <button
-            onClick={() => handleToggleEventHidden(metaOf(item))}
-            aria-label={item.hidden ? `Show ${item.title}` : `Hide ${item.title}`}
-            title={item.hidden ? 'Show on schedule' : 'Hide from schedule'}
+            onClick={() => onToggleEventHidden(metaOf(item))}
+            aria-label={`Hide ${item.title}`}
+            title="Hide from schedule"
             className="w-6 h-6 flex items-center justify-center rounded-md text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
           >
-            <EyeOffIcon off={!item.hidden} />
+            <EyeOffIcon off />
           </button>
         )}
         {/* Task controls, now that timed tasks are calendar-only: reminder bell +
@@ -885,7 +856,7 @@ export default function Timeline({
                 key={e.id}
                 className={`group inline-flex items-center gap-1.5 rounded-lg border border-line2 bg-surface2/60 pl-2.5 pr-1.5 py-1 text-xs ${
                   note.done ? 'text-faint line-through' : 'text-fg'
-                } ${note.hidden ? 'opacity-60' : ''}`}
+                }`}
               >
                 {e.title}
                 {spans && (
@@ -893,15 +864,14 @@ export default function Timeline({
                     {prettyRange(e.date, e.endDate)}
                   </span>
                 )}
-                {note.hidden && <span className="text-[10px] text-faint">hidden</span>}
                 {onToggleEventHidden && (
                   <button
-                    onClick={() => handleToggleEventHidden({ id: e.id, title: e.title, date: e.date, time: null })}
-                    aria-label={note.hidden ? `Show ${e.title}` : `Hide ${e.title}`}
-                    title={note.hidden ? 'Show on schedule' : 'Hide from schedule'}
+                    onClick={() => onToggleEventHidden({ id: e.id, title: e.title, date: e.date, time: null })}
+                    aria-label={`Hide ${e.title}`}
+                    title="Hide from schedule"
                     className="w-5 h-5 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
                   >
-                    <EyeOffIcon off={!note.hidden} />
+                    <EyeOffIcon off />
                   </button>
                 )}
               </span>
@@ -955,20 +925,43 @@ export default function Timeline({
               </button>
               {/* Hidden events must never be a trapdoor — always show that
                   they're there and offer the way back. */}
-              {hiddenCount > 0 && (
+              {hiddenEvents.length > 0 && (
                 <button
-                  onClick={() => {
-                    // Nothing revealed (fresh, or you just re-hid the last one)
-                    // → go looking. Something revealed → put it away.
-                    setJustHidden(new Set())
-                    setShowHidden(revealedCount === 0)
-                  }}
+                  onClick={() => setShowHiddenTray(v => !v)}
                   className="px-5 py-3 text-xs text-faint hover:text-fg transition-colors whitespace-nowrap"
                 >
-                  {revealedCount > 0 ? 'Hide again' : `${hiddenCount} hidden`}
+                  {showHiddenTray ? 'Done' : `${hiddenEvents.length} hidden`}
                 </button>
               )}
             </div>
+
+            {/* The tray. Hidden events are listed here by name, out of the
+                schedule, with one unambiguous action each. */}
+            {showHiddenTray && hiddenEvents.length > 0 && (
+              <div className="border-t border-line px-5 py-3 bg-surface2/40">
+                <p className="text-[10px] font-medium text-faint uppercase tracking-wider mb-2">
+                  Hidden from this day
+                </p>
+                <ul className="flex flex-col gap-1.5">
+                  {hiddenEvents.map(e => (
+                    <li key={e.id} className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted truncate">
+                        {e.title}
+                        {e.time && <span className="text-faint"> · {e.time}</span>}
+                      </span>
+                      <button
+                        onClick={() => onToggleEventHidden?.({
+                          id: e.id, title: e.title, date: e.date, time: e.time ?? null,
+                        })}
+                        className="text-xs text-accent hover:underline shrink-0"
+                      >
+                        Show
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
       </div>
