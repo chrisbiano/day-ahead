@@ -87,7 +87,7 @@ the build id:
 
 ```bash
 # BEFORE pushing, note what's currently live:
-curl -s https://sentinel-pied-sigma.vercel.app/version.json
+curl -s https://dayahead.app/version.json
 # then push, and watch that number CHANGE.
 ```
 

@@ -41,8 +41,14 @@ Vercel auto-deploys `main`. The parts that have actually bitten:
   local id always looks newer and produces false all-clears.
 - A Vercel webhook can silently skip a push. `git commit --allow-empty` kicks it.
 - Deploy edge functions BEFORE the frontend that calls them.
-- Health gates: every function should answer **401** unauthenticated;
-  `scheduler-tick` answers **403** without its cron secret.
+- Health gates: functions answer **401** unauthenticated; `scheduler-tick`
+  answers **403** without its cron secret. Two deliberate exceptions —
+  `google-oauth-callback` runs with **Verify JWT OFF** (Google's redirect carries
+  no Supabase token; it authenticates from the OAuth `state`) and answers 302, so
+  don't "fix" it to 401.
+- Never point anything at Vercel's generated `*.vercel.app` host. That name is
+  derived from the Vercel project name and dies if the project is renamed. Use
+  `https://dayahead.app`.
 - Schema changes are additive only (`add column if not exists`), so a rollback
   never strands the database ahead of the code.
 

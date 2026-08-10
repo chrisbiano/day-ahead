@@ -9,7 +9,12 @@ const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/google-oauth-callback`
-const FALLBACK_APP = 'https://sentinel-pied-sigma.vercel.app'
+// Where a connect lands when the OAuth `state` carries no usable origin. This
+// must be the production domain, never Vercel's generated *.vercel.app host:
+// that hostname is derived from the Vercel PROJECT NAME and dies the moment the
+// project is renamed, which would strand users here having already granted
+// Google their permissions.
+const FALLBACK_APP = 'https://dayahead.app'
 
 function decodeState(raw: string): { token: string; origin: string } {
   try {
