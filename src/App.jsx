@@ -14,7 +14,7 @@ import WeekView from './components/WeekView'
 import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
 import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
-import { carryOverItems, findTodayTarget, agoLabel } from './lib/carryOver'
+import { carryOverItems, findTodayTarget, todayTargets, agoLabel } from './lib/carryOver'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -752,6 +752,7 @@ export default function App() {
   const carryOverProps = isTodayView && carryoverItems.length > 0
     ? {
       items: carryoverItems,
+      targets: todayTargets({ tasks, events: dayEvents, todayISO }),
       // Where "Add to today" will actually put it — named so the button can say
       // so, rather than leaving the destination a surprise.
       destinationFor: (item) => {

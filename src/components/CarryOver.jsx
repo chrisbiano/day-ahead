@@ -15,8 +15,19 @@ import { useState } from 'react'
 
 const COLLAPSED = 5
 
+function ChevronIcon({ open }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round"
+      className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
 export default function CarryOver({
   items = [],
+  targets = [],
   destinationFor,
   onFile,
   onDrop,
@@ -25,6 +36,9 @@ export default function CarryOver({
   // Titles are truncated to keep rows scannable, but a long one is unreadable
   // on a phone — tapping it wraps the full text.
   const [openTitles, setOpenTitles] = useState(() => new Set())
+  // Key of the row whose destination list is open. One at a time — this is the
+  // exception, not the main path, and two open lists would crowd the card.
+  const [pickerFor, setPickerFor] = useState(null)
   const toggleTitle = (key) => setOpenTitles(prev => {
     const next = new Set(prev)
     if (next.has(key)) next.delete(key)
@@ -55,10 +69,8 @@ export default function CarryOver({
               /* Stacked on a phone, one row from sm up. Crowding a select and a
                  button onto the same line as the text left nothing to give at
                  narrow widths, and the select rode over its neighbour. */
-              <li
-                key={item.key}
-                className="px-5 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
-              >
+              <li key={item.key} className="px-5 py-2.5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <button
                   onClick={() => toggleTitle(item.key)}
                   aria-expanded={titleOpen}
@@ -92,6 +104,21 @@ export default function CarryOver({
                     Add to today
                   </button>
 
+                  {/* Somewhere other than the obvious place. Hidden when today
+                      has nothing to attach to, since an empty list is worse
+                      than no control. */}
+                  {targets.length > 0 && (
+                    <button
+                      onClick={() => setPickerFor(pickerFor === item.key ? null : item.key)}
+                      aria-expanded={pickerFor === item.key}
+                      aria-label={`Add "${item.title}" to a different task`}
+                      title="Add to a different task"
+                      className="w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-surface2 transition-colors shrink-0"
+                    >
+                      <ChevronIcon open={pickerFor === item.key} />
+                    </button>
+                  )}
+
                   <button
                     onClick={() => onDrop(item)}
                     aria-label={`Drop "${item.title}"`}
@@ -101,6 +128,30 @@ export default function CarryOver({
                     ×
                   </button>
                 </span>
+                </div>
+
+                {pickerFor === item.key && (
+                  <div className="mt-2 pl-0 sm:pl-3 border-l-0 sm:border-l border-line2">
+                    <p className="text-[10px] font-medium text-faint uppercase tracking-wider mb-1.5">
+                      Add to
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {targets.map(t => (
+                        <button
+                          key={t.key}
+                          onClick={() => { onFile(item, t.key); setPickerFor(null) }}
+                          className={`px-2.5 py-1 text-xs rounded-lg border transition-colors max-w-full truncate ${
+                            t.key === dest?.key
+                              ? 'border-accent text-accent'
+                              : 'border-line2 text-muted hover:text-fg hover:bg-surface2'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </li>
           )
         })}
