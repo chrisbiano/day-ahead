@@ -14,7 +14,7 @@ import WeekView from './components/WeekView'
 import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
 import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
-import { carryOverItems, findTodayTarget, todayTargets, agoLabel } from './lib/carryOver'
+import { carryOverItems, findTodayTarget, agoLabel } from './lib/carryOver'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -711,6 +711,19 @@ export default function App() {
   // write has landed, so a failure leaves it in Carryover rather than losing it
   // between two places.
   const fileCarryover = async (item, targetKey) => {
+    // No destination given means "just put it on today" — the button has to do
+    // something every time it's pressed, even on a day with nothing to attach
+    // to. It becomes a task of its own rather than silently doing nothing.
+    if (!targetKey) {
+      try {
+        await addTask({ title: item.title, date: todayISO })
+      } catch (e) {
+        console.error('Filing carryover failed:', e)
+        return
+      }
+      resolveCarryover(item)
+      return
+    }
     const [kind, ...rest] = String(targetKey).split(':')
     const targetId = rest.join(':')
     try {
@@ -739,11 +752,12 @@ export default function App() {
   const carryOverProps = isTodayView && carryoverItems.length > 0
     ? {
       items: carryoverItems,
-      targets: todayTargets({ tasks, events: dayEvents, todayISO }),
-      suggestedKeyFor: (item) => {
+      // Where "Add to today" will actually put it — named so the button can say
+      // so, rather than leaving the destination a surprise.
+      destinationFor: (item) => {
         const hit = findTodayTarget(item, { tasks, events: dayEvents, todayISO })
-        if (hit?.kind === 'task') return `task:${hit.task.id}`
-        if (hit?.kind === 'event') return `event:${hit.event.id}`
+        if (hit?.kind === 'task') return { key: `task:${hit.task.id}`, label: hit.task.title }
+        if (hit?.kind === 'event') return { key: `event:${hit.event.id}`, label: hit.event.title }
         return null
       },
       onFile: fileCarryover,

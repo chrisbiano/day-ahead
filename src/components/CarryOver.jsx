@@ -17,8 +17,7 @@ const COLLAPSED = 5
 
 export default function CarryOver({
   items = [],
-  targets = [],
-  suggestedKeyFor,
+  destinationFor,
   onFile,
   onDrop,
 }) {
@@ -50,7 +49,7 @@ export default function CarryOver({
 
       <ul className="divide-y divide-line">
         {shown.map(item => {
-          const suggested = suggestedKeyFor?.(item) ?? null
+          const dest = destinationFor?.(item) ?? null
           const titleOpen = openTitles.has(item.key)
           return (
               /* Stacked on a phone, one row from sm up. Crowding a select and a
@@ -69,26 +68,29 @@ export default function CarryOver({
                   <span className={`block text-sm text-fg ${titleOpen ? 'break-words' : 'truncate'}`}>
                     {item.title}
                   </span>
+                  {/* Only flag the surprising case: with nothing on today to
+                      attach to, the button makes it a task in its own right. */}
                   <span className="block text-[11px] text-faint truncate">
                     {item.parentTitle}{item.ago ? ` · ${item.ago}` : ''}
+                    {dest ? '' : ' · adds as its own task'}
                   </span>
                 </button>
 
                 <span className="flex items-center gap-2 shrink-0">
-                  {/* Value stays on the suggestion so the select reads as a
-                      destination, not an empty prompt. Choosing files
-                      immediately — no separate confirm to forget. */}
-                  <select
-                    value={suggested ?? ''}
-                    onChange={e => { if (e.target.value) onFile(item, e.target.value) }}
-                    aria-label={`Add "${item.title}" to a task today`}
-                    className="input py-1 text-xs min-w-0 flex-1 sm:flex-none sm:w-40"
+                  {/* A plain button, not a picker. The previous version was a
+                      select pre-set to the suggested destination, which made the
+                      main action a dead control: re-choosing the option already
+                      selected fires no change event, so the one destination you
+                      usually want was the one you couldn't pick. */}
+                  <button
+                    onClick={() => onFile(item, dest?.key ?? null)}
+                    title={dest
+                      ? `Add "${item.title}" to ${dest.label} today`
+                      : `Add "${item.title}" to today as its own task`}
+                    className="px-3 py-1.5 text-xs rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity whitespace-nowrap flex-1 sm:flex-none"
                   >
-                    <option value="">Add to…</option>
-                    {targets.map(t => (
-                      <option key={t.key} value={t.key}>{t.label}</option>
-                    ))}
-                  </select>
+                    Add to today
+                  </button>
 
                   <button
                     onClick={() => onDrop(item)}
