@@ -151,6 +151,20 @@ export function buildExportHtml(payload) {
   .empty { color:var(--faint); font-style:italic; }
   footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line);
            color:var(--faint); font-size:.8rem; }
+  /* One click to a real PDF. The browser's own print engine produces vector
+     text you can select and search; a bundled PDF library would rasterise the
+     page into a blurry image for ~350 KB of dependency. This is better output
+     for nothing. Hidden when printing so it never lands in the PDF itself. */
+  .keep { background:#FBF7EC; border:1px solid #EBDFC4; border-radius:8px;
+          padding:.8rem .9rem; margin:1.5rem 0 0; font-size:.85rem; color:var(--muted);
+          display:flex; align-items:center; justify-content:space-between; gap:1rem;
+          flex-wrap:wrap; }
+  .keep strong { color:var(--ink); }
+  .keep button { font:inherit; font-weight:600; color:#fff; background:#8A6A12;
+                 border:0; border-radius:6px; padding:.45rem .9rem; cursor:pointer;
+                 white-space:nowrap; }
+  .keep button:hover { opacity:.9; }
+  @media print { .keep { display:none; } }
   @media print {
     body { font-size:11pt; }
     .wrap { padding:0; max-width:none; }
@@ -166,6 +180,12 @@ export function buildExportHtml(payload) {
   <p class="stats">Exported ${esc(when)} · ${liveTasks.length} task${liveTasks.length === 1 ? '' : 's'}${
     liveTasks.length ? ` (${doneCount} completed)` : ''
   } · ${connected_accounts.length} mailbox${connected_accounts.length === 1 ? '' : 'es'}</p>
+
+  <div class="keep">
+    <span><strong>Keep a copy.</strong> This makes a PDF you can save anywhere —
+    choose <em>Save as PDF</em> as the destination. On iPhone, share the preview.</span>
+    <button type="button" onclick="window.print()">Save as PDF</button>
+  </div>
 
   <h2>Tasks</h2>
   ${renderTasks(tasks)}
