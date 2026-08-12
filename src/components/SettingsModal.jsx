@@ -487,6 +487,97 @@ function Toggle({ checked, onChange }) {
  *
  * Deliberately NOT undoable, and it says so. A grace period would mean keeping
  * the data of someone who asked to be forgotten. */
+/* Take everything with you.
+ *
+ * Pairs with delete: the only real cost of having no undo is that a deletion
+ * made in frustration leaves nothing behind. This makes that a file instead.
+ * It is also the portability half of what an assessor expects to see next to a
+ * delete button.
+ *
+ * No server code, deliberately. RLS already scopes every one of these tables to
+ * the signed-in user, so the browser reads exactly what belongs to them and
+ * nothing else — and account_tokens has RLS on with NO policies, which means
+ * this cannot export the Google tokens even by accident. The safety is
+ * structural rather than something this function has to remember.
+ *
+ * JSON rather than CSV: subtasks nest inside tasks, and flattening them to rows
+ * would lose the shape that makes the file worth keeping.
+ */
+const EXPORT_TABLES = [
+  'tasks',
+  'event_notes',
+  'email_verdicts',
+  'connected_accounts',
+  'task_templates',
+  'user_prefs',
+  'push_subscriptions',
+]
+
+function ExportData() {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const [done, setDone] = useState(false)
+
+  const run = async () => {
+    setBusy(true); setErr(null); setDone(false)
+    try {
+      const out = {}
+      for (const t of EXPORT_TABLES) {
+        const { data, error } = await supabase.from(t).select('*')
+        if (error) throw error
+        out[t] = data ?? []
+      }
+      const { data: { user } } = await supabase.auth.getUser()
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        account: user?.email ?? null,
+        note: 'Google access tokens are deliberately not included — they are secrets, not your content, and Day Ahead cannot read them from a browser.',
+        ...out,
+      }
+      const stamp = new Date().toISOString().slice(0, 10)
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+      )
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `day-ahead-export-${stamp}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      // Revoking immediately can cancel the download in some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 30000)
+      setDone(true)
+    } catch (e) {
+      setErr(e.message || 'Could not build the export.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 pt-5 border-t border-line">
+      <p className="text-xs font-medium text-faint uppercase tracking-wider mb-2">
+        Your data
+      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-muted min-w-0">
+          Download everything Day Ahead holds — tasks, checklists, mailbox notes and
+          preferences — as a single file. Worth doing before deleting your account.
+        </p>
+        <button
+          onClick={run}
+          disabled={busy}
+          className="text-xs px-2.5 py-1 rounded-lg border border-line text-muted hover:text-fg hover:bg-surface2 transition-colors shrink-0 disabled:opacity-50"
+        >
+          {busy ? 'Preparing…' : 'Download'}
+        </button>
+      </div>
+      {done && <p className="text-xs text-faint mt-2">Saved to your downloads.</p>}
+      {err && <p className="text-xs text-warn mt-2">{err}</p>}
+    </div>
+  )
+}
+
 function DeleteAccount() {
   const [stage, setStage] = useState('idle')      // idle | confirming | working | failed
   const [info, setInfo] = useState(null)          // { counts, email }
@@ -937,6 +1028,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
 
           {isSupabaseConfigured && <ReportProblem />}
 
+          {isSupabaseConfigured && <ExportData />}
           {isSupabaseConfigured && <DeleteAccount />}
         </div>
 
