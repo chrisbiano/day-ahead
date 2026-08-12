@@ -15,6 +15,7 @@ import MonthView from './components/MonthView'
 import SearchResults from './components/SearchResults'
 import { weekDays, monthGrid, eventCoversDay } from './lib/dates'
 import { carryOverItems, findTodayTarget, todayTargets, agoLabel } from './lib/carryOver'
+import { publishWidgetSnapshot } from './lib/widget'
 import EmailSection from './components/EmailSection'
 import TasksSection from './components/TasksSection'
 import SettingsModal from './components/SettingsModal'
@@ -650,6 +651,15 @@ export default function App() {
   // Timed tasks live on the schedule only (they have a slot there); the task list
   // is for the untimed "whenever" to-dos. Keeps the two from doubling up.
   const untimedTasks = visibleTasks.filter(t => !t.time)
+
+  /* Keep the home-screen widget in step with today.
+     The widget can't fetch, so it shows whatever it was last handed — which
+     means a stale snapshot is indistinguishable to the user from a broken
+     widget. Republishing whenever today's tasks or events change is what makes
+     it trustworthy at a glance. No-ops off iOS. */
+  useEffect(() => {
+    publishWidgetSnapshot({ tasks, events, todayISO })
+  }, [tasks, events, todayISO])
 
   /* ---- Carryover ----
      Anything still owed on a day that has passed is parked into Carryover: off
