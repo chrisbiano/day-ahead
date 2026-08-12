@@ -190,6 +190,7 @@ export default function App() {
     undoable: emailUndoable,
     undo: undoEmail,
     dismissUndo: dismissEmailUndo,
+    refresh: refreshEmails,
   } = useEmails()
 
   // Real events from every connected Google Calendar, merged onto the timeline.
@@ -486,11 +487,16 @@ export default function App() {
   // phone never showed up here — tasks and checklists were whatever this tab
   // loaded at startup. Now it re-pulls everything that can change on the other
   // device.
+  /* The header's ↻ — everything the day is built from, in parallel.
+     Email belongs here as much as the rest. It was left out when this was
+     written for cross-device sync, so new mail only appeared after a full
+     reload and the button looked broken to anyone waiting on a message. */
   const refreshEverything = async () => {
     await Promise.all([
       refreshCalendar(),
       refreshTasks(),
       refreshEventNotes(),
+      refreshEmails(),
     ])
   }
 
@@ -770,7 +776,9 @@ export default function App() {
     <Layout
       onOpenSettings={() => setSettingsOpen(true)}
       onRefresh={refreshEverything}
-      refreshing={calendarLoading}
+      // Mail is the slowest of the four; spinning only on the calendar meant the
+      // button stopped while the thing you were waiting for was still loading.
+      refreshing={calendarLoading || emailsLoading}
     >
       <main className="space-y-6">
         {/* Daily brief — pinned at the very top until dismissed. */}
