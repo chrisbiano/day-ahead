@@ -1,0 +1,8 @@
+{
+  "appId": "app.dayahead",
+  "appName": "Day Ahead",
+  "webDir": "dist",
+  "ios": {
+    "backgroundColor": "#0B0B0C"
+  }
+}

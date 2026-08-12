@@ -5,10 +5,15 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import { startUpdater } from './lib/updater.js'
 import { startErrorLogging } from './lib/errorLog.js'
+import { setupNativeChrome } from './lib/native.js'
 import './index.css'
 
 // Before anything renders, so a crash during startup is still caught.
 startErrorLogging()
+
+// No-op in the browser; in the native shell it stops the status bar sitting on
+// top of the header.
+setupNativeChrome()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
