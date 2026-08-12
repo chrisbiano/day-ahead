@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isNative, signInNative } from '../lib/native'
 
 /* The public face of Day Ahead: what a stranger (and Google's OAuth reviewer)
    sees at the root. Signing in swaps this for the app — no routing change, so
@@ -29,15 +30,28 @@ export default function Landing() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  /* Two routes to the same place. On the web the page navigates to Google and
+     the redirect brings it back. On a device there's no page to hand over, so
+     the URL opens in a browser sheet and a deep link carries the result home —
+     see lib/native.js. */
   const signIn = async () => {
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    })
-    if (error) {
-      setError(error.message)
+    try {
+      if (isNative()) {
+        await signInNative()
+        // The sheet is up; the deep-link handler takes it from here. Clear the
+        // spinner so a cancelled sign-in doesn't leave the button stuck.
+        setLoading(false)
+        return
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+      if (error) throw error
+    } catch (e) {
+      setError(e.message)
       setLoading(false)
     }
   }

@@ -5,15 +5,18 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import { startUpdater } from './lib/updater.js'
 import { startErrorLogging } from './lib/errorLog.js'
-import { setupNativeChrome } from './lib/native.js'
+import { setupNativeChrome, startNativeAuthBridge } from './lib/native.js'
 import './index.css'
 
 // Before anything renders, so a crash during startup is still caught.
 startErrorLogging()
 
-// No-op in the browser; in the native shell it stops the status bar sitting on
-// top of the header.
+// Both no-op in the browser. On a device: keeps the status bar off the header,
+// and listens for the deep link that carries a finished Google sign-in back
+// into the app. The listener is registered before render so a fast round trip
+// can't land before anything is listening.
 setupNativeChrome()
+startNativeAuthBridge()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
