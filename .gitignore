@@ -41,3 +41,5 @@ ios/App/App/public/
 ios/App/DerivedData/
 **/xcuserdata/
 *.xcworkspace/xcshareddata/
+# Supabase CLI local state (link target, versions) — not project config.
+supabase/.temp/
