@@ -7,6 +7,7 @@ import {
   enablePush, disablePush, sendTestPush, isIOS,
 } from '../lib/push'
 import { submitReport } from '../lib/errorLog'
+import { buildExportHtml } from '../lib/exportDoc'
 
 /* Turn Web Push on for this device, and prove it works with a test ping before
    any reminder depends on it. The iOS reality is baked in: on iPhone, push only
@@ -518,7 +519,8 @@ function ExportData() {
   const [err, setErr] = useState(null)
   const [done, setDone] = useState(false)
 
-  const run = async () => {
+  // format: 'doc' (a readable HTML document) or 'json' (the raw rows).
+  const run = async (format) => {
     setBusy(true); setErr(null); setDone(false)
     try {
       const out = {}
@@ -535,12 +537,14 @@ function ExportData() {
         ...out,
       }
       const stamp = new Date().toISOString().slice(0, 10)
-      const url = URL.createObjectURL(
-        new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
-      )
+      const asDoc = format !== 'json'
+      const url = URL.createObjectURL(new Blob(
+        [asDoc ? buildExportHtml(payload) : JSON.stringify(payload, null, 2)],
+        { type: asDoc ? 'text/html' : 'application/json' },
+      ))
       const a = document.createElement('a')
       a.href = url
-      a.download = `day-ahead-export-${stamp}.json`
+      a.download = `day-ahead-export-${stamp}.${asDoc ? 'html' : 'json'}`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -561,17 +565,26 @@ function ExportData() {
       </p>
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-muted min-w-0">
-          Download everything Day Ahead holds — tasks, checklists, mailbox notes and
-          preferences — as a single file. Worth doing before deleting your account.
+          Everything Day Ahead holds — tasks, checklists, mailbox notes and preferences —
+          as one page you can read, print or save as a PDF. Worth doing before you delete
+          your account.
         </p>
         <button
-          onClick={run}
+          onClick={() => run('doc')}
           disabled={busy}
           className="text-xs px-2.5 py-1 rounded-lg border border-line text-muted hover:text-fg hover:bg-surface2 transition-colors shrink-0 disabled:opacity-50"
         >
           {busy ? 'Preparing…' : 'Download'}
         </button>
       </div>
+      {/* For anyone moving the data into another tool rather than keeping it. */}
+      <button
+        onClick={() => run('json')}
+        disabled={busy}
+        className="text-[11px] text-faint hover:text-fg transition-colors mt-1.5 disabled:opacity-50"
+      >
+        or download the raw data (JSON)
+      </button>
       {done && <p className="text-xs text-faint mt-2">Saved to your downloads.</p>}
       {err && <p className="text-xs text-warn mt-2">{err}</p>}
     </div>
