@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { startGoogleConnect, isConnectConfigured } from '../lib/connect'
 import useConnectedAccounts from '../hooks/useConnectedAccounts'
@@ -276,6 +276,22 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
   )
 }
 
+/* Strip anything that shouldn't survive a paste.
+ *
+ * This is the account owner's own markup, going into their own outgoing mail,
+ * so the risk is low — but it gets rendered back inside Day Ahead's own page,
+ * and a <script> or an onerror= arriving via the clipboard would run there.
+ * Tags and event handlers go; formatting, links, colours and images stay,
+ * because those are the whole point of a signature. */
+function cleanSignatureHtml(html) {
+  return String(html || '')
+    .replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
+    .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript:/gi, '')
+}
+
 /* The signature that goes out on replies from this mailbox.
  *
  * Day Ahead used to read this from Gmail, which cost the restricted
@@ -283,39 +299,50 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
  * forwarding and vacation responders, so it asked for far more than it used.
  * Pasting it once is the better trade; see lib/connect.js.
  *
- * Paste straight from Gmail and the HTML comes with it — logo, links, colours
- * intact. Typed plain text works too, and its line breaks are kept. The preview
- * renders the exact markup that will be sent, so what's shown here is what the
- * recipient gets. */
+ * The editor is contenteditable, NOT a textarea. A textarea can only ever hold
+ * plain text: paste rich content into one and the browser hands over the text
+ * flavour and silently drops the markup, so a logo never arrives. A
+ * contenteditable region receives the real HTML from the clipboard, which is
+ * how the image, links and colours survive.
+ *
+ * Uncontrolled on purpose — the content is written into the node once when the
+ * editor opens and read back on save. Driving innerHTML from React state on
+ * every keystroke fights the browser for the caret and sends it to the start of
+ * the line mid-word. */
 function SignatureEditor({ account, onSave }) {
   const savedSig = account.signature ?? ''
   const savedName = account.display_name ?? ''
   const [open, setOpen] = useState(false)
-  const [sig, setSig] = useState(savedSig)
   const [name, setName] = useState(savedName)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  const boxRef = useRef(null)
 
-  const dirty = sig !== savedSig || name !== savedName
+  // Seed the editable node when it appears, not on every render.
+  useEffect(() => {
+    if (open && boxRef.current) boxRef.current.innerHTML = savedSig
+  }, [open, savedSig])
 
   const save = async () => {
     setSaving(true); setErr(null)
-    const res = await onSave(account.id, { signature: sig, displayName: name })
+    const html = cleanSignatureHtml(boxRef.current?.innerHTML || '')
+    // A logo pasted as a data: URI can be enormous; warn rather than fail a
+    // save halfway through.
+    if (html.length > 200_000) {
+      setSaving(false)
+      setErr('That signature is very large — try an image hosted at a URL rather than pasted in.')
+      return
+    }
+    const res = await onSave(account.id, { signature: html, displayName: name })
     setSaving(false)
     if (res?.ok === false) setErr(res.error || 'Could not save that.')
     else setOpen(false)
   }
 
-  // Pasting from Gmail yields HTML; typing yields plain text. Anything with a
-  // tag is treated as markup; anything else keeps the line breaks as written.
-  const render = (s) => (/<[a-z][\s\S]*>/i.test(s)
-    ? s
-    : s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>'))
-
   return (
     <div className="mt-2">
       <button
-        onClick={() => { setSig(savedSig); setName(savedName); setErr(null); setOpen(v => !v) }}
+        onClick={() => { setName(savedName); setErr(null); setOpen(v => !v) }}
         className="text-xs text-faint hover:text-fg transition-colors"
       >
         {open ? 'Close signature' : savedSig ? 'Edit signature' : 'Add a signature'}
@@ -325,7 +352,7 @@ function SignatureEditor({ account, onSave }) {
         <div className="mt-2 rounded-lg border border-line bg-bg p-3">
           <div
             className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
-            dangerouslySetInnerHTML={{ __html: render(savedSig) }}
+            dangerouslySetInnerHTML={{ __html: savedSig }}
           />
         </div>
       )}
@@ -344,25 +371,22 @@ function SignatureEditor({ account, onSave }) {
           />
 
           <label className="block text-[11px] text-faint mb-1">Signature</label>
-          <textarea
-            value={sig}
-            onChange={e => setSig(e.target.value)}
-            rows={5}
-            placeholder="Paste your signature straight from Gmail — formatting, links and logo come with it."
-            className="input w-full min-w-0 text-xs resize-none"
-          />
+          <div
+            ref={boxRef}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Email signature"
 
-          {sig.trim() && (
-            <>
-              <p className="text-[11px] text-faint mt-3 mb-1">Recipients will see</p>
-              <div className="rounded-lg border border-line2 p-2.5">
-                <div
-                  className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
-                  dangerouslySetInnerHTML={{ __html: render(sig) }}
-                />
-              </div>
-            </>
-          )}
+            data-placeholder="Paste your signature from Gmail — image and all."
+            className="input w-full min-w-0 text-sm min-h-[6rem] max-h-72 overflow-auto
+                       [&_a]:text-accent [&_img]:max-w-full [&_img]:h-auto
+                       empty:before:content-[attr(data-placeholder)] empty:before:text-faint empty:before:text-xs"
+          />
+          <p className="text-[11px] text-faint mt-1.5">
+            This box keeps formatting. What you see here is what your recipient gets.
+          </p>
 
           {err && <p className="text-xs text-warn mt-2">{err}</p>}
 
@@ -375,7 +399,7 @@ function SignatureEditor({ account, onSave }) {
             </button>
             <button
               onClick={save}
-              disabled={!dirty || saving}
+              disabled={saving}
               className="text-xs px-3 py-1 rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save'}
@@ -384,6 +408,15 @@ function SignatureEditor({ account, onSave }) {
         </div>
       )}
     </div>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
   )
 }
 
@@ -396,12 +429,23 @@ function PlusIcon() {
   )
 }
 
-function XIcon() {
+function Toggle({ checked, onChange }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
+        checked ? 'bg-accent' : 'bg-surface2 border border-line2'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+          checked ? 'left-[1.125rem] bg-accent-fg' : 'left-0.5 bg-muted'
+        }`}
+      />
+    </button>
   )
 }
 
@@ -469,34 +513,6 @@ function ReportProblem() {
   )
 }
 
-function Toggle({ checked, onChange }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
-        checked ? 'bg-accent' : 'bg-surface2 border border-line2'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
-          checked ? 'left-[1.125rem] bg-accent-fg' : 'left-0.5 bg-muted'
-        }`}
-      />
-    </button>
-  )
-}
-
-/* One connected mailbox, plus the note that tells Claude what it's for.
- *
- * This note is the difference between a venue's booking inquiry landing in
- * "Reply" and landing in "Junk" — without it, Claude only sees an email from a
- * stranger. Once saved it collapses to a one-line gist with an Edit button, so
- * a described mailbox reads as done rather than as an open box you're unsure
- * about. The empty state nags on purpose — a missing note is a confidently
- * wrong verdict later. */
 function AccountRow({ account, onSetPurpose, onSetSignature, onDisconnect }) {
   const saved = account.purpose ?? ''
   const [editing, setEditing] = useState(false)

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy · Day Ahead</title>
+    <meta name="description" content="What Day Ahead accesses, why, and what it never does." />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg:#0B0B0C; --surface:#161616; --line:#2A2A2A; --fg:#F7F7F4; --muted:#9C9C9C; --accent:#F5C878; }
+      * { box-sizing: border-box; }
+      body {
+        margin:0; background:var(--bg); color:var(--fg);
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        line-height:1.7; -webkit-font-smoothing:antialiased;
+      }
+      .wrap { max-width:44rem; margin:0 auto; padding:3rem 1.5rem 5rem; }
+      .brand { display:flex; align-items:center; gap:.7rem; margin-bottom:3rem; text-decoration:none; color:inherit; }
+      .brand img { width:38px; height:38px; border-radius:10px; }
+      .brand span { font-family:'Instrument Serif',Georgia,serif; font-size:1.35rem; letter-spacing:-.01em; }
+      h1 { font-family:'Instrument Serif',Georgia,serif; font-size:2.4rem; line-height:1.15; margin:0 0 .4rem; font-weight:400; }
+      h2 { font-family:'Instrument Serif',Georgia,serif; font-size:1.45rem; margin:2.6rem 0 .6rem; font-weight:400; }
+      p, li { color:var(--muted); font-size:.98rem; }
+      strong { color:var(--fg); font-weight:500; }
+      ul { padding-left:1.1rem; }
+      li { margin:.4rem 0; }
+      .updated { color:#6E6E6E; font-size:.85rem; margin-bottom:2.5rem; }
+      .callout { background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:12px; padding:1rem 1.2rem; margin:1.6rem 0; }
+      .callout p { margin:0; color:var(--fg); }
+      a { color:var(--accent); }
+      footer { border-top:1px solid var(--line); margin-top:3.5rem; padding-top:1.4rem; font-size:.82rem; color:#6E6E6E; }
+      @media (prefers-color-scheme: light) {
+        :root { --bg:#FAFAF8; --surface:#FFFFFF; --line:#E6E4DE; --fg:#1A1A1C; --muted:#5A5956; --accent:#C68D34; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/icon.svg" alt="" /><span>Day Ahead</span></a>
+
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 3 August 2026</p>
+
+      <p>
+        Day Ahead brings your calendar, your tasks and your email into one place so you
+        can see your day at a glance. To do that it needs access to some of your Google
+        data. This page explains exactly what it touches, why, and what it will never do.
+      </p>
+
+      <div class="callout">
+        <p>
+          Day Ahead does not sell your data, does not show ads, and does not use your
+          email or calendar content to train any AI model.
+        </p>
+      </div>
+
+      <h2>What we access, and why</h2>
+      <ul>
+        <li><strong>Google Calendar (read-only).</strong> To show your events on your daily schedule. Day Ahead never creates, edits or deletes anything in your calendar.</li>
+        <li><strong>Gmail (read and modify).</strong> To sort incoming mail into what needs a reply, what's worth reading, and what's noise — and to act on your instruction: mark read, archive, trash, or send a reply you have written. Day Ahead does <strong>not</strong> request the scope that allows permanent deletion.</li>
+        <li><strong>Your email address and basic profile.</strong> To create your account and show which mailbox is which.</li>
+        <li><strong>Contacts you have emailed.</strong> Only to suggest addresses when you forward a message.</li>
+      </ul>
+
+      <h2>What we store</h2>
+      <ul>
+        <li>Your tasks, notes and preferences — created by you, in the app.</li>
+        <li>For each recent email: sender, subject, a short preview, and the sorting decision. Enough to show your inbox summary. Full message bodies are read to sort a message and are not retained.</li>
+        <li>Crash reports and any problem you choose to report, so bugs can be fixed.</li>
+      </ul>
+      <p>
+        Data is stored with Supabase (Postgres) and isolated per account by row-level
+        security, so one account can never read another's. Your Google access tokens are
+        held server-side and are never exposed to the browser.
+      </p>
+
+      <h2>AI processing</h2>
+      <p>
+        Sorting your mail and writing your daily brief is done by Anthropic's Claude API.
+        Content is sent to that API only to produce a result for you. Anthropic does not
+        train models on data submitted through its API. Day Ahead only ever proposes —
+        sending, archiving, trashing and calendar changes all require you to click.
+      </p>
+
+      <h2>Sharing</h2>
+      <p>
+        Your data is not sold or shared with anyone. It is processed only by the services
+        that make the product work: Google (your own data), Supabase (storage), Anthropic
+        (AI processing) and Vercel (hosting).
+      </p>
+
+      <h2>Your control</h2>
+      <ul>
+        <li>Disconnect any mailbox at any time in Settings — that revokes Day Ahead's access to it.</li>
+        <li>Revoke access entirely at <a href="https://myaccount.google.com/permissions">your Google Account permissions</a>.</li>
+        <li>Ask for your account and its data to be deleted, and it will be removed.</li>
+      </ul>
+
+      <h2>Limited Use disclosure</h2>
+      <p>
+        Day Ahead's use and transfer of information received from Google APIs adheres to
+        the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+        including its Limited Use requirements.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions, or want your data deleted? Email
+        <a href="mailto:chris@fastrosecreative.com">chris@fastrosecreative.com</a>.
+      </p>
+
+      <footer>Day Ahead · Wake up to clarity</footer>
+    </div>
+  </body>
+</html>

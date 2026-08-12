@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="round"><rect width="1024" height="1024" rx="230"/></clipPath>
+    <radialGradient id="room" cx="512" cy="666" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3E2B1B"/>
+      <stop offset="0.30" stop-color="#1C1410"/>
+      <stop offset="0.62" stop-color="#100E0D"/>
+      <stop offset="1" stop-color="#0B0B0C"/>
+    </radialGradient>
+
+    <linearGradient id="archLine" x1="512" y1="330" x2="512" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF2D4"/>
+      <stop offset="0.28" stop-color="#F5C878"/>
+      <stop offset="0.74" stop-color="#8E6330"/>
+      <stop offset="1" stop-color="#43321D" stop-opacity="0.5"/>
+    </linearGradient>
+
+    <linearGradient id="archBloom" x1="512" y1="330" x2="512" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5C878" stop-opacity="0.45"/>
+      <stop offset="0.45" stop-color="#F5C878" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#F5C878" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="inner" x1="512" y1="345" x2="512" y2="702" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#090807"/>
+      <stop offset="0.58" stop-color="#130E0A"/>
+      <stop offset="1" stop-color="#33230F"/>
+    </linearGradient>
+
+    <radialGradient id="orb" cx="512" cy="700" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF7"/>
+      <stop offset="0.40" stop-color="#FFF2D4"/>
+      <stop offset="0.80" stop-color="#F5C878"/>
+      <stop offset="1" stop-color="#DFA64A"/>
+    </radialGradient>
+    <radialGradient id="orbGlow" cx="512" cy="700" r="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE3AE" stop-opacity="0.70"/>
+      <stop offset="0.36" stop-color="#F5C878" stop-opacity="0.26"/>
+      <stop offset="0.70" stop-color="#C98A3E" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#F5C878" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="spill" x1="512" y1="700" x2="512" y2="906" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE9C6" stop-opacity="0.40"/>
+      <stop offset="0.42" stop-color="#F5C878" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#F5C878" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="floorLine" x1="268" y1="0" x2="756" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5C878" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#FFE3AE" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#F5C878" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#round)">
+
+  <rect width="1024" height="1024" fill="url(#room)"/>
+
+  <!-- light thrown forward, stopping well short of the tile edge -->
+  <path d="M384 700 L640 700 L742 906 L282 906 Z" fill="url(#spill)"/>
+
+  <!-- doorway interior -->
+  <path d="M386 702 L386 472 A126 126 0 0 1 638 472 L638 702 Z" fill="url(#inner)"/>
+
+  <circle cx="512" cy="700" r="250" fill="url(#orbGlow)"/>
+
+  <!-- sun cresting the threshold -->
+  <path d="M424 700 A88 88 0 0 1 600 700 Z" fill="url(#orb)"/>
+
+  <rect x="268" y="697.5" width="488" height="4" rx="2" fill="url(#floorLine)"/>
+
+  <path d="M386 702 L386 472 A126 126 0 0 1 638 472 L638 702"
+        fill="none" stroke="url(#archBloom)" stroke-width="30" stroke-linecap="round"/>
+  <path d="M386 702 L386 472 A126 126 0 0 1 638 472 L638 702"
+        fill="none" stroke="url(#archLine)" stroke-width="10" stroke-linecap="round"/>
+</g>
+</svg>
