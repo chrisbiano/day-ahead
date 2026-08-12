@@ -96,8 +96,12 @@ export async function decryptToken(stored: string | null | undefined): Promise<s
  * and remembered. This just does it: any plaintext row gets sealed the next time
  * a function opens it, so the migration completes by itself as the app is used.
  *
- * Silent by design. A failure here means the row stays plaintext and is retried
- * next time — it must never break the request the caller actually made.
+ * Failures here must never break the request the caller actually made, so they
+ * are caught — but they are LOGGED, not swallowed. The first version swallowed
+ * them, and when the key turned out to be malformed the only symptom was rows
+ * quietly staying plaintext: no error anywhere, nothing to search for, three
+ * rounds of guessing before a probe found it. A caught error with no trace is a
+ * bug that cannot be reported.
  */
 // deno-lint-ignore no-explicit-any
 export async function upgradeStoredToken(admin: any, accountId: string, tok: any) {
@@ -111,9 +115,11 @@ export async function upgradeStoredToken(admin: any, accountId: string, tok: any
       patch.access_token = (await encryptToken(tok.access_token))!
     }
     if (Object.keys(patch).length === 0) return
-    await admin.from('account_tokens').update(patch).eq('account_id', accountId)
-  } catch {
-    // Deliberately swallowed — see above.
+    const { error } = await admin.from('account_tokens').update(patch).eq('account_id', accountId)
+    if (error) console.error('Token upgrade write failed:', error.message)
+  } catch (e) {
+    // Caught so the caller's request still succeeds, but never silent.
+    console.error('Token upgrade failed:', e instanceof Error ? e.message : String(e))
   }
 }
 
