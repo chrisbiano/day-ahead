@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Favicon in every format: Safari has NO svg-favicon support (it silently
+         falls back), so the bright glyph ships as ico + png too. All bust caches
+         by being brand-new filenames. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Installable app: manifest + theme, plus the iOS-specific tags that make
+         "Add to Home Screen" open fullscreen with the right icon and title. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0B0B0C" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Day Ahead" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <title>Day Ahead • Wake up to clarity</title>
+
+    <!-- Set the theme BEFORE first paint, straight from the saved settings, so a
+         light-mode user never sees a flash of the dark palette while React boots.
+         'auto' leaves the attribute off and lets prefers-color-scheme decide.
+         Also syncs the browser-UI colours (status bar / address bar). -->
+    <script>
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('sentinel.settings.v1') || '{}')
+          var pick = s.theme || 'dark'
+          var light = pick === 'light' ||
+            (pick === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches)
+          if (pick === 'auto') document.documentElement.removeAttribute('data-theme')
+          else document.documentElement.setAttribute('data-theme', pick)
+          document.querySelector('meta[name="color-scheme"]').setAttribute('content', light ? 'light' : 'dark')
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#fafafa' : '#0B0B0C')
+        } catch (e) { /* defaults in CSS cover it */ }
+      })()
+    </script>
+    <script type="module" crossorigin src="/assets/index-BacAGziU.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-K3sViVB-.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
