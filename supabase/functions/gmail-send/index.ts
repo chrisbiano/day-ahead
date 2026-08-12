@@ -190,10 +190,40 @@ async function originalContext(token: string, gmailId: string) {
 
    Synchronous now — no token, no network call, and no failure mode where a reply
    goes out unsigned because an API was briefly unavailable. */
+/* Pin the margins a mail client would otherwise invent.
+ *
+ * A signature copied out of Gmail relies on a CSS reset it never carries with
+ * it. Gmail's compose window sets `p { margin: 0 }`, and so does Day Ahead's own
+ * stylesheet — so the same markup looks correct in both, then arrives in a mail
+ * client with no reset at all, which applies its default ~1em above AND below
+ * every paragraph. The signature stretches out and nobody can see why, because
+ * every place you'd check it looks fine.
+ *
+ * So the margin is written in explicitly, and only where the author didn't set
+ * one. Their own spacing always wins; this just refuses to inherit a stranger's.
+ */
+const SPACED_TAGS = 'p|h1|h2|h3|h4|h5|h6|ul|ol|blockquote'
+function pinMargins(html: string) {
+  return html
+    // Tags that already carry a style attribute: add margin only if absent.
+    .replace(
+      new RegExp(`<(${SPACED_TAGS})\\b([^>]*?)style="([^"]*)"`, 'gi'),
+      (m, tag, attrs, style) =>
+        /(^|;)\s*margin(-top|-bottom)?\s*:/i.test(style)
+          ? m
+          : `<${tag}${attrs}style="margin:0;${style}"`,
+    )
+    // Tags with no style attribute at all.
+    .replace(
+      new RegExp(`<(${SPACED_TAGS})\\b((?:(?!style=)[^>])*?)>`, 'gi'),
+      (m, tag, attrs) => `<${tag}${attrs} style="margin:0">`,
+    )
+}
+
 function identityOf(acct: { signature?: string | null; display_name?: string | null }) {
   return {
     displayName: acct?.display_name ?? '',
-    signature: acct?.signature ?? '',   // HTML, may be empty
+    signature: pinMargins(acct?.signature ?? ''),   // HTML, may be empty
   }
 }
 
