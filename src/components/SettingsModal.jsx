@@ -411,6 +411,108 @@ function SignatureEditor({ account, onSave }) {
   )
 }
 
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function Toggle({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
+        checked ? 'bg-accent' : 'bg-surface2 border border-line2'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+          checked ? 'left-[1.125rem] bg-accent-fg' : 'left-0.5 bg-muted'
+        }`}
+      />
+    </button>
+  )
+}
+
+/* "That did the wrong thing." Crash reporting only sees things that break, and
+   most product problems don't throw — they just behave badly. The build id, page
+   and browser ride along automatically, so a report is actionable without having
+   to go back and ask which version they were on. */
+function ReportProblem() {
+  const [text, setText] = useState('')
+  const [state, setState] = useState('idle')   // idle | sending | sent
+  const [error, setError] = useState(null)
+
+  const send = async () => {
+    setState('sending'); setError(null)
+    try {
+      await submitReport(text)
+      setState('sent')
+      setText('')
+    } catch (e) {
+      setState('idle')
+      setError(e.message || 'Could not send that.')
+    }
+  }
+
+  return (
+    <div className="border-t border-line pt-5">
+      <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">Report a problem</h3>
+      {state === 'sent' ? (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-fg">
+            Sent — thank you. What you were looking at and which version you're on came with it.
+          </p>
+          <button
+            onClick={() => setState('idle')}
+            className="text-xs px-2.5 py-1 rounded-lg border border-line2 text-muted hover:text-fg transition-colors shrink-0"
+          >
+            Send another
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-faint mb-2">
+            Something behaving oddly, or just confusing? Describe it in your own words.
+          </p>
+          <textarea
+            rows={3}
+            value={text}
+            onChange={e => { setText(e.target.value); setError(null) }}
+            placeholder="What happened, and what did you expect instead?"
+            className="input w-full text-sm resize-none"
+          />
+          {error && <p className="text-xs text-warn mt-1.5">{error}</p>}
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={send}
+              disabled={state === 'sending' || !text.trim()}
+              className="px-3 py-1.5 text-sm rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {state === 'sending' ? 'Sending…' : 'Send report'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function AccountRow({ account, onSetPurpose, onSetSignature, onDisconnect }) {
   const saved = account.purpose ?? ''
   const [editing, setEditing] = useState(false)
