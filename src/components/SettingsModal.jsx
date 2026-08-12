@@ -542,15 +542,29 @@ function ExportData() {
         [asDoc ? buildExportHtml(payload) : JSON.stringify(payload, null, 2)],
         { type: asDoc ? 'text/html' : 'application/json' },
       ))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `day-ahead-export-${stamp}.${asDoc ? 'html' : 'json'}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      // Revoking immediately can cancel the download in some browsers.
-      setTimeout(() => URL.revokeObjectURL(url), 30000)
-      setDone(true)
+
+      /* Opening beats downloading for the document.
+         A .html file landing in Downloads is fine on a Mac and close to useless
+         on a phone, where most people have no idea what to do with one in Files.
+         Opened in a tab it's just a page — and every device already has a way to
+         keep a page: Print → Save as PDF, or Share → Print on iOS. The document
+         says so at the top. Downloading the file stays available for anyone who
+         wants the file itself. */
+      if (format === 'open') {
+        const w = window.open(url, '_blank')
+        if (!w) throw new Error('Your browser blocked the new tab. Allow pop-ups for dayahead.app, or use “save the file” below.')
+      } else {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `day-ahead-export-${stamp}.${asDoc ? 'html' : 'json'}`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      // Revoking immediately can cancel a download, or blank a tab that's still
+      // loading. A minute is plenty and the leak is one object per export.
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      setDone(format === 'open' ? 'opened' : 'saved')
     } catch (e) {
       setErr(e.message || 'Could not build the export.')
     } finally {
@@ -566,26 +580,39 @@ function ExportData() {
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-muted min-w-0">
           Everything Day Ahead holds — tasks, checklists, mailbox notes and preferences —
-          as one page you can read, print or save as a PDF. Worth doing before you delete
-          your account.
+          as one page. It opens in a new tab, and the page itself shows you how to keep it
+          as a PDF. Worth doing before you delete your account.
         </p>
         <button
-          onClick={() => run('doc')}
+          onClick={() => run('open')}
           disabled={busy}
           className="text-xs px-2.5 py-1 rounded-lg border border-line text-muted hover:text-fg hover:bg-surface2 transition-colors shrink-0 disabled:opacity-50"
         >
-          {busy ? 'Preparing…' : 'Download'}
+          {busy ? 'Preparing…' : 'Open'}
         </button>
       </div>
-      {/* For anyone moving the data into another tool rather than keeping it. */}
-      <button
-        onClick={() => run('json')}
-        disabled={busy}
-        className="text-[11px] text-faint hover:text-fg transition-colors mt-1.5 disabled:opacity-50"
-      >
-        or download the raw data (JSON)
-      </button>
-      {done && <p className="text-xs text-faint mt-2">Saved to your downloads.</p>}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
+        <button
+          onClick={() => run('doc')}
+          disabled={busy}
+          className="text-[11px] text-faint hover:text-fg transition-colors disabled:opacity-50"
+        >
+          or save the file
+        </button>
+        {/* For anyone moving the data into another tool rather than keeping it. */}
+        <button
+          onClick={() => run('json')}
+          disabled={busy}
+          className="text-[11px] text-faint hover:text-fg transition-colors disabled:opacity-50"
+        >
+          raw data (JSON)
+        </button>
+      </div>
+      {done && (
+        <p className="text-xs text-faint mt-2">
+          {done === 'opened' ? 'Opened in a new tab.' : 'Saved to your downloads.'}
+        </p>
+      )}
       {err && <p className="text-xs text-warn mt-2">{err}</p>}
     </div>
   )
