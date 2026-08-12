@@ -473,6 +473,142 @@ function Toggle({ checked, onChange }) {
    most product problems don't throw — they just behave badly. The build id, page
    and browser ride along automatically, so a report is actionable without having
    to go back and ask which version they were on. */
+/* Delete the account and everything Day Ahead holds.
+ *
+ * The privacy policy used to say "email us", which is honest but weak: it makes
+ * the person ask permission to leave, and it puts a human step between a
+ * request and a deletion. This does it in the product.
+ *
+ * Two deliberate frictions, and no more. The counts are fetched first so nobody
+ * accepts a consequence described only in the abstract — "14 tasks, 3 mailboxes"
+ * lands differently from "all your data". And the address must be typed, which
+ * is checked again server-side against the token's own user, so a stale or
+ * mistaken screen can't delete the wrong account.
+ *
+ * Deliberately NOT undoable, and it says so. A grace period would mean keeping
+ * the data of someone who asked to be forgotten. */
+function DeleteAccount() {
+  const [stage, setStage] = useState('idle')      // idle | confirming | working | failed
+  const [info, setInfo] = useState(null)          // { counts, email }
+  const [typed, setTyped] = useState('')
+  const [err, setErr] = useState(null)
+
+  const begin = async () => {
+    setErr(null); setStage('working')
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      body: { mode: 'preview' },
+    })
+    if (error || data?.error) {
+      setErr((data && data.error) || 'Could not read your account just now.')
+      setStage('failed')
+      return
+    }
+    setInfo(data); setTyped(''); setStage('confirming')
+  }
+
+  const destroy = async () => {
+    setErr(null); setStage('working')
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      body: { mode: 'delete', confirmEmail: info?.email },
+    })
+    if (error || data?.error) {
+      setErr((data && data.error) || 'Could not delete the account.')
+      setStage('failed')
+      return
+    }
+    // The account is gone; the session it was signed in with is meaningless.
+    await supabase.auth.signOut().catch(() => {})
+    window.location.replace('/')
+  }
+
+  const rows = Object.entries(info?.counts || {}).filter(([, n]) => n > 0)
+  const label = {
+    tasks: 'tasks', event_notes: 'annotated calendar blocks', email_verdicts: 'sorted emails',
+    connected_accounts: 'connected mailboxes', push_subscriptions: 'notification devices',
+    task_templates: 'task templates', user_prefs: 'preference records',
+    problem_reports: 'problem reports', client_errors: 'error reports',
+  }
+
+  return (
+    <div className="mt-8 pt-5 border-t border-line">
+      <p className="text-xs font-medium text-faint uppercase tracking-wider mb-2">
+        Delete account
+      </p>
+
+      {stage === 'idle' || stage === 'failed' ? (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-xs text-muted min-w-0">
+            Removes everything Day Ahead holds and revokes its access to your Google
+            account. Your mail and calendar stay where they are, untouched.
+          </p>
+          <button
+            onClick={begin}
+            className="text-xs px-2.5 py-1 rounded-lg border border-warn-line text-warn hover:bg-warn/10 transition-colors shrink-0"
+          >
+            Delete account
+          </button>
+        </div>
+      ) : null}
+
+      {stage === 'working' && !info && (
+        <p className="text-xs text-faint">Checking what you have…</p>
+      )}
+
+      {stage === 'confirming' && (
+        <div className="rounded-lg border border-warn-line bg-bg p-3">
+          <p className="text-xs text-fg mb-2">This will permanently delete:</p>
+          <ul className="text-xs text-muted mb-3 space-y-0.5">
+            {rows.length === 0 ? (
+              <li>· your account, and the preferences attached to it</li>
+            ) : rows.map(([k, n]) => (
+              <li key={k}>· {n} {label[k] || k.replace(/_/g, ' ')}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted mb-3">
+            It also revokes Day Ahead's access to your Google account. Your email and
+            calendar themselves are not touched. <strong className="text-fg">This cannot be
+            undone.</strong>
+          </p>
+          <label className="block text-[11px] text-faint mb-1">
+            Type <span className="text-fg">{info?.email}</span> to confirm
+          </label>
+          <input
+            value={typed}
+            onChange={e => setTyped(e.target.value)}
+            size={1}
+            autoComplete="off"
+            className="input w-full min-w-0 text-xs"
+          />
+          {err && <p className="text-xs text-warn mt-2">{err}</p>}
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button
+              onClick={() => { setStage('idle'); setInfo(null); setErr(null) }}
+              className="text-xs text-faint hover:text-fg transition-colors px-2 py-1"
+            >
+              Keep my account
+            </button>
+            <button
+              onClick={destroy}
+              disabled={typed.trim().toLowerCase() !== String(info?.email || '').toLowerCase()}
+              className="text-xs px-3 py-1 rounded-lg bg-warn text-bg font-medium hover:opacity-90 transition-opacity disabled:opacity-30"
+            >
+              Delete everything
+            </button>
+          </div>
+        </div>
+      )}
+
+      {stage === 'working' && info && (
+        <p className="text-xs text-faint">Deleting…</p>
+      )}
+
+      {stage === 'failed' && err && (
+        <p className="text-xs text-warn mt-2">{err}</p>
+      )}
+    </div>
+  )
+}
+
 function ReportProblem() {
   const [text, setText] = useState('')
   const [state, setState] = useState('idle')   // idle | sending | sent
@@ -800,6 +936,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
           )}
 
           {isSupabaseConfigured && <ReportProblem />}
+
+          {isSupabaseConfigured && <DeleteAccount />}
         </div>
 
         <div className="px-5 py-3 border-t border-line text-xs text-faint">
