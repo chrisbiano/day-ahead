@@ -341,12 +341,32 @@ function SignatureEditor({ account, onSave }) {
 
   return (
     <div className="mt-2">
-      <button
-        onClick={() => { setName(savedName); setErr(null); setOpen(v => !v) }}
-        className="text-xs text-faint hover:text-fg transition-colors"
-      >
-        {open ? 'Close signature' : savedSig ? 'Edit signature' : 'Add a signature'}
-      </button>
+      {(open || savedSig) && (
+        <button
+          onClick={() => { setName(savedName); setErr(null); setOpen(v => !v) }}
+          className="text-xs text-faint hover:text-fg transition-colors"
+        >
+          {open ? 'Close signature' : 'Edit signature'}
+        </button>
+      )}
+
+      {/* Nags like the missing-purpose row does, and for the same reason: Gmail
+          only adds a signature in its own compose window, so a mailbox without
+          one here sends replies out bare — and the compose window looks fine
+          either way, so nobody notices until a client has already had one. */}
+      {!open && !savedSig && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted min-w-0">
+            No signature — replies from this mailbox go out unsigned.
+          </p>
+          <button
+            onClick={() => { setName(savedName); setErr(null); setOpen(true) }}
+            className="text-xs px-2.5 py-1 rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity shrink-0"
+          >
+            Add signature
+          </button>
+        </div>
+      )}
 
       {!open && savedSig && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3">
