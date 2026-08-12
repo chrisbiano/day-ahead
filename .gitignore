@@ -33,3 +33,6 @@ Thumbs.db
 .claude
 
 .vapid.local.txt
+
+# Supabase CLI local state (link target, versions) — not project config.
+supabase/.temp/
