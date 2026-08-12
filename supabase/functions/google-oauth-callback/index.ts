@@ -3,6 +3,7 @@
 // token, so this endpoint must be publicly reachable. It authenticates the
 // user via the access token packed into the OAuth `state` instead.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { encryptToken } from '../_shared/tokenCrypto.ts'
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')!
 const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')!
@@ -86,8 +87,8 @@ Deno.serve(async (req) => {
   const expiresAt = new Date(Date.now() + (tok.expires_in ?? 3600) * 1000).toISOString()
   const { error: tErr } = await admin.from('account_tokens').upsert({
     account_id: acct.id,
-    refresh_token: tok.refresh_token,
-    access_token: tok.access_token,
+    refresh_token: await encryptToken(tok.refresh_token),
+    access_token: await encryptToken(tok.access_token),
     expires_at: expiresAt,
     updated_at: new Date().toISOString(),
   })

@@ -25,6 +25,7 @@
 // that regardless, and the failures are reported back so they can finish the
 // job at myaccount.google.com if they want to.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decryptToken } from '../_shared/tokenCrypto.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
       const r = await fetch('https://oauth2.googleapis.com/revoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ token: tok.refresh_token }),
+        body: new URLSearchParams({ token: await decryptToken(tok.refresh_token) }),
         signal: AbortSignal.timeout(10000),
       })
       // 200 = revoked. 400 usually means already invalid, which is fine.

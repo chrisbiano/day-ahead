@@ -6,6 +6,7 @@
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET and
 // ANTHROPIC_API_KEY (same secret gmail-messages uses).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
@@ -32,10 +33,12 @@ async function freshAccessToken(admin: any, account: any) {
   const { data: tok } = await admin
     .from('account_tokens').select('*').eq('account_id', account.id).single()
   if (!tok) return null
+  // Seals any row still stored in plaintext; no-op once done.
+  await upgradeStoredToken(admin, account.id, tok)
 
   const stillValid = tok.access_token && tok.expires_at &&
     new Date(tok.expires_at).getTime() > Date.now() + 60_000
-  if (stillValid) return tok.access_token
+  if (stillValid) return await decryptToken(tok.access_token)
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -43,7 +46,7 @@ async function freshAccessToken(admin: any, account: any) {
     body: new URLSearchParams({
       client_id: CLIENT_ID!,
       client_secret: CLIENT_SECRET!,
-      refresh_token: tok.refresh_token,
+      refresh_token: await decryptToken(tok.refresh_token),
       grant_type: 'refresh_token',
     }),
   })
@@ -53,7 +56,7 @@ async function freshAccessToken(admin: any, account: any) {
     return null
   }
   await admin.from('account_tokens').update({
-    access_token: j.access_token,
+    access_token: await encryptToken(j.access_token),
     expires_at: new Date(Date.now() + (j.expires_in ?? 3600) * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('account_id', account.id)

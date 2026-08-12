@@ -3,6 +3,7 @@
 // ones hidden in the Google Calendar UI.
 // Deploy with "Verify JWT" ON: the app calls this with the user's login token.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
 const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')
@@ -22,10 +23,12 @@ async function freshAccessToken(admin, account) {
   const { data: tok } = await admin
     .from('account_tokens').select('*').eq('account_id', account.id).single()
   if (!tok) return null
+  // Seals any row still stored in plaintext; no-op once done.
+  await upgradeStoredToken(admin, account.id, tok)
 
   const stillValid = tok.access_token && tok.expires_at &&
     new Date(tok.expires_at).getTime() > Date.now() + 60_000
-  if (stillValid) return tok.access_token
+  if (stillValid) return await decryptToken(tok.access_token)
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -33,7 +36,7 @@ async function freshAccessToken(admin, account) {
     body: new URLSearchParams({
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
-      refresh_token: tok.refresh_token,
+      refresh_token: await decryptToken(tok.refresh_token),
       grant_type: 'refresh_token',
     }),
   })
@@ -43,7 +46,7 @@ async function freshAccessToken(admin, account) {
     return null
   }
   await admin.from('account_tokens').update({
-    access_token: j.access_token,
+    access_token: await encryptToken(j.access_token),
     expires_at: new Date(Date.now() + (j.expires_in ?? 3600) * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('account_id', account.id)
