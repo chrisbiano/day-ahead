@@ -1,11 +1,11 @@
-// Day Ahead — reply to an email as Chris, in-thread, with his real Gmail signature.
+// Day Ahead — reply to an email as Chris, in-thread, signed the way he signs.
 //
 // Deploy with "Verify JWT" ON. Needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
-// Requires the account to have granted gmail.send (to send) and
-// gmail.settings.basic (to read the send-as signature) — see connect.js.
+// Requires the account to have granted gmail.send. The signature comes from the
+// account's own row, NOT from Gmail — see identityOf() for why that matters.
 //
 // Two modes on one function so the compose window and the send share all the
-// setup (token, original-message lookup, signature fetch):
+// setup (token, original-message lookup):
 //   preview — return the prefilled To / Subject / From name + signature HTML so
 //             the modal shows exactly what will go out. No mail is sent.
 //   send    — build a threaded HTML reply (typed body + the untouched signature)
@@ -177,22 +177,23 @@ async function originalContext(token: string, gmailId: string) {
   }
 }
 
-// The signature Gmail shows for this identity, plus the display name, straight
-// from the account's send-as settings — the exact HTML, sent verbatim.
-async function sendAsIdentity(token: string, accountEmail: string) {
-  const r = await fetchT(
-    'https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs',
-    { headers: { Authorization: `Bearer ${token}` } },
-  )
-  if (!r || !r.ok) return { displayName: '', signature: '' }
-  const j = await r.json()
-  const list = j.sendAs ?? []
-  const mine = list.find((s: any) => s.sendAsEmail?.toLowerCase() === accountEmail.toLowerCase())
-    ?? list.find((s: any) => s.isDefault)
-    ?? list[0]
+/* The signature and display name that sign a reply, taken from the account's own
+   row rather than from Gmail.
+
+   This used to call Gmail's send-as settings endpoint, which needs the RESTRICTED
+   gmail.settings.basic scope. Google judges a scope by what it PERMITS, not by
+   what an app does with it — settings.basic allows changing filters, forwarding
+   and vacation responders. Requesting write access to someone's mail settings in
+   order to read one string enlarged the security assessment for no proportionate
+   gain, so the signature is pasted into Settings once instead. Identical bytes on
+   the wire; one fewer restricted scope to justify.
+
+   Synchronous now — no token, no network call, and no failure mode where a reply
+   goes out unsigned because an API was briefly unavailable. */
+function identityOf(acct: { signature?: string | null; display_name?: string | null }) {
   return {
-    displayName: mine?.displayName ?? '',
-    signature: mine?.signature ?? '',   // HTML, may be empty
+    displayName: acct?.display_name ?? '',
+    signature: acct?.signature ?? '',   // HTML, may be empty
   }
 }
 
@@ -262,7 +263,7 @@ Deno.serve(async (req) => {
   // The account is the ownership check for every mode (scoped to this user).
   const { data: acct } = await admin
     .from('connected_accounts')
-    .select('id, email')
+    .select('id, email, signature, display_name')
     .eq('user_id', u.user.id)
     .eq('email', accountEmail)
     .single()
@@ -274,7 +275,7 @@ Deno.serve(async (req) => {
   // Signature preview: no message involved — just show what would sign a reply.
   // Lets Chris eyeball his signature from Settings without composing anything.
   if (mode === 'signature') {
-    const identity = await sendAsIdentity(token, accountEmail)
+    const identity = identityOf(acct)
     return json({
       from: identity.displayName ? `${identity.displayName} <${accountEmail}>` : accountEmail,
       signatureHtml: identity.signature,
@@ -299,11 +300,9 @@ Deno.serve(async (req) => {
     if (!to || typeof text !== 'string') {
       return json({ error: 'Expected { to, text } to forward' }, 400)
     }
-    // Signature + full original in parallel — two Gmail reads, one wait.
-    const [identity, orig] = await Promise.all([
-      sendAsIdentity(token, accountEmail),
-      originalFull(token, messageId),
-    ])
+    // The signature is local now, so only the original needs fetching.
+    const identity = identityOf(acct)
+    const orig = await originalFull(token, messageId)
     if (!orig) return json({ error: 'Could not read the original message' }, 502)
     const fromHeader = identity.displayName
       ? `${encodeHeader(identity.displayName)} <${accountEmail}>`
@@ -349,12 +348,10 @@ Deno.serve(async (req) => {
     return json({ ok: true })
   }
 
-  // preview / send: signature + reply-threading context in parallel, so the
-  // compose modal isn't waiting on two sequential Gmail round-trips.
-  const [identity, ctx] = await Promise.all([
-    sendAsIdentity(token, accountEmail),
-    originalContext(token, messageId),
-  ])
+  // preview / send: the signature is local now, so the compose modal waits on
+  // one Gmail round-trip instead of two.
+  const identity = identityOf(acct)
+  const ctx = await originalContext(token, messageId)
   if (!ctx) return json({ error: 'Could not read the original message' }, 502)
   const fromHeader = identity.displayName
     ? `${encodeHeader(identity.displayName)} <${accountEmail}>`

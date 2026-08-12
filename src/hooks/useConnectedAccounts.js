@@ -11,7 +11,7 @@ export default function useConnectedAccounts() {
     if (!isSupabaseConfigured) { setLoading(false); return }
     const { data, error } = await supabase
       .from('connected_accounts')
-      .select('id, email, provider, status, purpose, created_at')
+      .select('id, email, provider, status, purpose, signature, display_name, created_at')
       .order('created_at', { ascending: true })
     if (error) console.error('Load connected accounts failed:', error)
     setAccounts(data || [])
@@ -37,6 +37,30 @@ export default function useConnectedAccounts() {
     return { ok: true }
   }, [accounts])
 
+  /* The signature and sender name that go out on replies from this mailbox.
+     Stored here rather than read from Gmail so Day Ahead doesn't have to hold
+     the restricted gmail.settings.basic scope — see lib/connect.js. Optimistic
+     with rollback, same as purpose: believing you saved a signature you didn't
+     means every reply afterwards goes out bare. */
+  const setSignature = useCallback(async (id, { signature, displayName }) => {
+    const previous = accounts
+    const patch = {
+      signature: (signature ?? '').trim() || null,
+      display_name: (displayName ?? '').trim() || null,
+    }
+    setAccounts(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)))
+    const { error } = await supabase
+      .from('connected_accounts')
+      .update(patch)
+      .eq('id', id)
+    if (error) {
+      console.error('Saving signature failed:', error)
+      setAccounts(previous)
+      return { ok: false, error: error.message }
+    }
+    return { ok: true }
+  }, [accounts])
+
   useEffect(() => { refresh() }, [refresh])
 
   // Deleting the account cascades to its tokens (ON DELETE CASCADE).
@@ -49,5 +73,5 @@ export default function useConnectedAccounts() {
     }
   }, [refresh])
 
-  return { accounts, loading, refresh, disconnect, setPurpose }
+  return { accounts, loading, refresh, disconnect, setPurpose, setSignature }
 }

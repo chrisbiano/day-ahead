@@ -276,54 +276,111 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
   )
 }
 
-/* Fetch and show the account's real Gmail signature — the exact HTML that
-   signs a reply. Lets Chris confirm it looks right before trusting it on a
-   client send. Needs the gmail.settings.basic scope, so before the reconnect
-   that grants it, this reports that plainly rather than showing blank. */
-function SignaturePreview({ accountEmail }) {
+/* The signature that goes out on replies from this mailbox.
+ *
+ * Day Ahead used to read this from Gmail, which cost the restricted
+ * gmail.settings.basic scope — one that also permits changing filters,
+ * forwarding and vacation responders, so it asked for far more than it used.
+ * Pasting it once is the better trade; see lib/connect.js.
+ *
+ * Paste straight from Gmail and the HTML comes with it — logo, links, colours
+ * intact. Typed plain text works too, and its line breaks are kept. The preview
+ * renders the exact markup that will be sent, so what's shown here is what the
+ * recipient gets. */
+function SignatureEditor({ account, onSave }) {
+  const savedSig = account.signature ?? ''
+  const savedName = account.display_name ?? ''
   const [open, setOpen] = useState(false)
-  const [state, setState] = useState({ loading: false, html: null, error: null, empty: false })
+  const [sig, setSig] = useState(savedSig)
+  const [name, setName] = useState(savedName)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
 
-  const toggle = async () => {
-    if (open) { setOpen(false); return }
-    setOpen(true)
-    if (state.html !== null || state.empty || state.error) return   // already fetched
-    setState({ loading: true, html: null, error: null, empty: false })
-    const { data, error } = await supabase.functions.invoke('gmail-send', {
-      body: { accountEmail, mode: 'signature' },
-    })
-    if (error || data?.error) {
-      setState({ loading: false, html: null, empty: false,
-        error: (data && data.error) || 'Reconnect this account to read its signature.' })
-    } else if (!data.signatureHtml) {
-      setState({ loading: false, html: null, error: null, empty: true })
-    } else {
-      setState({ loading: false, html: data.signatureHtml, error: null, empty: false })
-    }
+  const dirty = sig !== savedSig || name !== savedName
+
+  const save = async () => {
+    setSaving(true); setErr(null)
+    const res = await onSave(account.id, { signature: sig, displayName: name })
+    setSaving(false)
+    if (res?.ok === false) setErr(res.error || 'Could not save that.')
+    else setOpen(false)
   }
+
+  // Pasting from Gmail yields HTML; typing yields plain text. Anything with a
+  // tag is treated as markup; anything else keeps the line breaks as written.
+  const render = (s) => (/<[a-z][\s\S]*>/i.test(s)
+    ? s
+    : s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>'))
 
   return (
     <div className="mt-2">
       <button
-        onClick={toggle}
+        onClick={() => { setSig(savedSig); setName(savedName); setErr(null); setOpen(v => !v) }}
         className="text-xs text-faint hover:text-fg transition-colors"
       >
-        {open ? 'Hide signature' : 'Preview signature'}
+        {open ? 'Close signature' : savedSig ? 'Edit signature' : 'Add a signature'}
       </button>
+
+      {!open && savedSig && (
+        <div className="mt-2 rounded-lg border border-line bg-bg p-3">
+          <div
+            className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
+            dangerouslySetInnerHTML={{ __html: render(savedSig) }}
+          />
+        </div>
+      )}
+
       {open && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3">
-          {state.loading ? (
-            <p className="text-xs text-faint">Reading your signature…</p>
-          ) : state.error ? (
-            <p className="text-xs text-muted">{state.error}</p>
-          ) : state.empty ? (
-            <p className="text-xs text-muted">No signature set on this account in Gmail.</p>
-          ) : (
-            <div
-              className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
-              dangerouslySetInnerHTML={{ __html: state.html }}
-            />
+          <label className="block text-[11px] text-faint mb-1">
+            Name recipients see (optional)
+          </label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            size={1}
+            placeholder="Chris · Fast Rose Creative"
+            className="input w-full min-w-0 text-xs mb-3"
+          />
+
+          <label className="block text-[11px] text-faint mb-1">Signature</label>
+          <textarea
+            value={sig}
+            onChange={e => setSig(e.target.value)}
+            rows={5}
+            placeholder="Paste your signature straight from Gmail — formatting, links and logo come with it."
+            className="input w-full min-w-0 text-xs resize-none"
+          />
+
+          {sig.trim() && (
+            <>
+              <p className="text-[11px] text-faint mt-3 mb-1">Recipients will see</p>
+              <div className="rounded-lg border border-line2 p-2.5">
+                <div
+                  className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
+                  dangerouslySetInnerHTML={{ __html: render(sig) }}
+                />
+              </div>
+            </>
           )}
+
+          {err && <p className="text-xs text-warn mt-2">{err}</p>}
+
+          <div className="flex items-center justify-end gap-2 mt-2.5">
+            <button
+              onClick={() => setOpen(false)}
+              className="text-xs text-faint hover:text-fg transition-colors px-2 py-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={!dirty || saving}
+              className="text-xs px-3 py-1 rounded-lg bg-accent text-accent-fg font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -440,7 +497,7 @@ function Toggle({ checked, onChange }) {
  * a described mailbox reads as done rather than as an open box you're unsure
  * about. The empty state nags on purpose — a missing note is a confidently
  * wrong verdict later. */
-function AccountRow({ account, onSetPurpose, onDisconnect }) {
+function AccountRow({ account, onSetPurpose, onSetSignature, onDisconnect }) {
   const saved = account.purpose ?? ''
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(saved)
@@ -532,7 +589,7 @@ function AccountRow({ account, onSetPurpose, onDisconnect }) {
         </div>
       )}
 
-      <SignaturePreview accountEmail={account.email} />
+      <SignatureEditor account={account} onSave={onSetSignature} />
     </div>
   )
 }
@@ -540,7 +597,7 @@ function AccountRow({ account, onSetPurpose, onDisconnect }) {
 export default function SettingsModal({ open, onClose, settings, onChange, morningBrief, onMorningBriefChange, briefTime, onBriefTimeChange }) {
   const [email, setEmail] = useState(null)
   const [connecting, setConnecting] = useState(false)
-  const { accounts, loading: accountsLoading, disconnect, setPurpose } = useConnectedAccounts()
+  const { accounts, loading: accountsLoading, disconnect, setPurpose, setSignature } = useConnectedAccounts()
 
   const connect = async () => {
     setConnecting(true)
@@ -697,6 +754,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
                       key={a.id}
                       account={a}
                       onSetPurpose={setPurpose}
+                      onSetSignature={setSignature}
                       onDisconnect={disconnect}
                     />
                   ))}
