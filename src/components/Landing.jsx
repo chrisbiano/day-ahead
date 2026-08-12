@@ -146,7 +146,8 @@ export default function Landing() {
           <li>· Your account tokens never touch the browser.</li>
         </ul>
         <p className="text-faint text-xs mt-5">
-          Read the <a href="/privacy.html" className="underline hover:text-muted">privacy policy</a>.
+          Read the <a href="/privacy.html" className="underline hover:text-muted">privacy policy</a>
+          {' '}and the <a href="/terms.html" className="underline hover:text-muted">terms of service</a>.
         </p>
       </section>
 
@@ -166,7 +167,10 @@ export default function Landing() {
       <footer className="border-t border-line">
         <div className="max-w-5xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap items-center justify-between gap-3 text-xs text-faint">
           <span>Day Ahead · Wake up to clarity</span>
-          <a href="/privacy.html" className="hover:text-muted transition-colors">Privacy</a>
+          <span className="flex items-center gap-4">
+            <a href="/privacy.html" className="hover:text-muted transition-colors">Privacy</a>
+            <a href="/terms.html" className="hover:text-muted transition-colors">Terms</a>
+          </span>
         </div>
       </footer>
     </div>
