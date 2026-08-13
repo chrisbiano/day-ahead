@@ -30,8 +30,17 @@ struct DaySnapshot: Codable {
     let updatedAt: String
     let items: [DayItem]
     let total: Int
+    // Optional so an older snapshot written before these existed still decodes
+    // rather than failing outright and blanking the widget.
+    let timedTotal: Int?
+    let anytimeTotal: Int?
+    let needsReply: Int?
 
-    static let empty = DaySnapshot(date: "", updatedAt: "", items: [], total: 0)
+    var timed: [DayItem] { items.filter { $0.kind != "anytime" } }
+    var anytime: [DayItem] { items.filter { $0.kind == "anytime" } }
+
+    static let empty = DaySnapshot(date: "", updatedAt: "", items: [], total: 0,
+                                   timedTotal: 0, anytimeTotal: 0, needsReply: 0)
 
     static func load() -> DaySnapshot {
         guard
@@ -51,9 +60,10 @@ struct DaySnapshot: Codable {
         items: [
             DayItem(title: "Lost Saints", time: "10:30 AM", kind: "task", subtaskTotal: 3, subtaskDone: 1),
             DayItem(title: "Client Work", time: "1:00 PM", kind: "task", subtaskTotal: 2, subtaskDone: 0),
-            DayItem(title: "Rosie pickup", time: "4:30 PM", kind: "event", subtaskTotal: 0, subtaskDone: 0)
+            DayItem(title: "Rosie pickup", time: "4:30 PM", kind: "event", subtaskTotal: 0, subtaskDone: 0),
+            DayItem(title: "Call the venue back", time: "", kind: "anytime", subtaskTotal: 0, subtaskDone: 0)
         ],
-        total: 3
+        total: 4, timedTotal: 3, anytimeTotal: 1, needsReply: 3
     )
 }
 
@@ -145,12 +155,26 @@ struct NextUpView: View {
     }
 }
 
+/* The medium widget answers "what is my day", not "what is next".
+ *
+ * Three zones, because a day has three shapes: what is booked to a time, what is
+ * waiting whenever, and whether the inbox needs answering. Showing only the
+ * timed rows made a quiet evening look like an empty life — and left the widget
+ * mostly dead space, which is what prompted this.
+ *
+ * The inbox line is the app's own count, computed with the same rule as the stat
+ * row (action == "reply"), so a glance can never disagree with the screen.
+ */
 struct TimelineView: View {
     let entry: Entry
 
+    private var timed: [DayItem] { Array(entry.snapshot.timed.prefix(3)) }
+    private var anytime: [DayItem] { Array(entry.snapshot.anytime.prefix(2)) }
+    private var replies: Int { entry.snapshot.needsReply ?? 0 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
                 Text("TODAY")
                     .font(.system(size: 9, weight: .semibold))
                     .tracking(0.8)
@@ -163,16 +187,16 @@ struct TimelineView: View {
                 }
             }
 
-            if entry.snapshot.items.isEmpty {
+            if entry.snapshot.items.isEmpty && replies == 0 {
                 Spacer()
-                Text("Nothing scheduled today")
+                Text("Nothing left today")
                     .font(.system(size: 13))
                     .foregroundColor(faint)
                 Spacer()
             } else {
-                ForEach(entry.snapshot.items.prefix(4), id: \.self) { item in
+                ForEach(timed, id: \.self) { item in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(item.time.isEmpty ? "—" : item.time)
+                        Text(item.time)
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(accent)
                             .frame(width: 58, alignment: .leading)
@@ -188,7 +212,42 @@ struct TimelineView: View {
                         }
                     }
                 }
+
+                // Untimed work, marked by a dot rather than a fake time — these
+                // are not scheduled and shouldn't pretend to be.
+                ForEach(anytime, id: \.self) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("•")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(faint)
+                            .frame(width: 58, alignment: .leading)
+                        Text(item.title)
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(white: 0.82))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        if item.subtaskTotal > 0 {
+                            Text("\(item.subtaskDone)/\(item.subtaskTotal)")
+                                .font(.system(size: 10))
+                                .foregroundColor(faint)
+                        }
+                    }
+                }
+
                 Spacer(minLength: 0)
+
+                if replies > 0 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "envelope.fill")
+                            .font(.system(size: 9))
+                            .foregroundColor(accent)
+                        Text("\(replies) need\(replies == 1 ? "s" : "") a reply")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(accent)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.top, 2)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -26,7 +26,7 @@ function todayISO() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-export function buildSnapshot({ tasks = [], events = [], todayISO: today = todayISO() }) {
+export function buildSnapshot({ tasks = [], events = [], emails = [], todayISO: today = todayISO() }) {
   const items = []
 
   for (const t of tasks) {
@@ -34,7 +34,7 @@ export function buildSnapshot({ tasks = [], events = [], todayISO: today = today
     items.push({
       title: t.title,
       time: t.time || '',
-      kind: 'task',
+      kind: t.time ? 'task' : 'anytime',
       done: false,
       subtaskTotal: (t.subtasks || []).filter(s => !s.deletedAt).length,
       subtaskDone: (t.subtasks || []).filter(s => !s.deletedAt && s.done).length,
@@ -55,11 +55,18 @@ export function buildSnapshot({ tasks = [], events = [], todayISO: today = today
     return minutesOf(a.time) - minutesOf(b.time)
   })
 
+  /* The medium widget shows a day, not a list: what's booked, what's waiting
+     whenever, and whether the inbox needs you. Counting here — with the same
+     rule the app's own stat row uses (action === 'reply') — keeps the widget
+     from ever disagreeing with the screen it summarises. */
   return {
     date: today,
     updatedAt: new Date().toISOString(),
     items: items.slice(0, 6),
     total: items.length,
+    timedTotal: items.filter(i => i.kind !== 'anytime').length,
+    anytimeTotal: items.filter(i => i.kind === 'anytime').length,
+    needsReply: emails.filter(e => e?.action === 'reply').length,
   }
 }
 

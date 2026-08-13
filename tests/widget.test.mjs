@@ -44,5 +44,32 @@ ok('but reports the real total', big.total === 12)
 
 ok('empty day is safe', buildSnapshot({ todayISO: TODAY }).items.length === 0)
 
+
+
+// --- the fuller picture the medium widget draws -------------------------
+{
+  const s = buildSnapshot({
+    todayISO: TODAY,
+    tasks: [
+      { title: 'Client Work', date: TODAY, time: '1:00 PM', subtasks: [] },
+      { title: 'Call the venue', date: TODAY, time: null, subtasks: [] },
+      { title: 'Invoice Calvin', date: TODAY, time: null, subtasks: [] },
+    ],
+    events: [{ title: 'Lost Saints', date: TODAY, time: '10:30 AM' }],
+    emails: [
+      { action: 'reply' }, { action: 'reply' },
+      { action: 'read' }, { action: 'unsubscribe' }, { action: null },
+    ],
+  })
+  ok('untimed tasks marked as anytime', s.items.filter(i => i.kind === 'anytime').length === 2)
+  ok('timed items keep their kind', s.items.filter(i => i.kind === 'anytime').length + s.timedTotal === s.total)
+  ok('timed/anytime totals correct', s.timedTotal === 2 && s.anytimeTotal === 2)
+  ok('needsReply counts only action=reply', s.needsReply === 2)
+  ok('anytime sorts after timed', s.items[0].kind !== 'anytime' && s.items.at(-1).kind === 'anytime')
+
+  const none = buildSnapshot({ todayISO: TODAY, tasks: [], events: [], emails: [] })
+  ok('empty day reports zero replies', none.needsReply === 0 && none.total === 0)
+}
+
 console.log(`\n  ${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

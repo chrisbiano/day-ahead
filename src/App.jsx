@@ -658,8 +658,8 @@ export default function App() {
      widget. Republishing whenever today's tasks or events change is what makes
      it trustworthy at a glance. No-ops off iOS. */
   useEffect(() => {
-    publishWidgetSnapshot({ tasks, events, todayISO })
-  }, [tasks, events, todayISO])
+    publishWidgetSnapshot({ tasks, events, emails, todayISO })
+  }, [tasks, events, emails, todayISO])
 
   /* ---- Carryover ----
      Anything still owed on a day that has passed is parked into Carryover: off
