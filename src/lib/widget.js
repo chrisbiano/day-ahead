@@ -24,8 +24,6 @@ export const widgetsSupported = () => Capacitor.getPlatform() === 'ios'
 /* Failures are logged, never thrown: a stale widget is a small disappointment,
    and crashing the app over one is not a trade worth making. */
 export async function publishWidgetSnapshot(input) {
-  // TEMPORARY: report what the app thinks it is, so a silent no-op is visible.
-  try { reportError(new Error(`widget probe platform=${Capacitor.getPlatform()} native=${Capacitor.isNativePlatform()}`), 'widget-probe') } catch {}
   if (!widgetsSupported()) return
   try {
     await WidgetBridge.publish({ json: JSON.stringify(buildSnapshot(input)) })
