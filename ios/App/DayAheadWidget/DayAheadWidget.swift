@@ -186,17 +186,17 @@ struct TimelineView: View {
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10)
                 .stroke(tint.opacity(0.35), lineWidth: 1)
         )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("TODAY")
                     .font(.system(size: 9, weight: .semibold))
@@ -242,7 +242,7 @@ struct TimelineView: View {
 
             // The two things that aren't the schedule, side by side.
             if replies > 0 || openCount > 0 {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     if replies > 0 {
                         capsuleRow("envelope.fill",
                                    "\(replies) need\(replies == 1 ? "s" : "") a reply",
@@ -254,7 +254,7 @@ struct TimelineView: View {
                                    Color(white: 0.72))
                     }
                 }
-                .padding(.top, 2)
+                .padding(.top, 6)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
