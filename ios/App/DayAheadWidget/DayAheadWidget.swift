@@ -157,20 +157,43 @@ struct NextUpView: View {
 
 /* The medium widget answers "what is my day", not "what is next".
  *
- * Three zones, because a day has three shapes: what is booked to a time, what is
- * waiting whenever, and whether the inbox needs answering. Showing only the
- * timed rows made a quiet evening look like an empty life — and left the widget
- * mostly dead space, which is what prompted this.
+ * The schedule owns the body; the two counts that are not schedule — loose
+ * tasks and unanswered mail — sit side by side along the bottom in stroked
+ * capsules, the same outline the app uses on its cards. That keeps the timed
+ * rows reading as one list instead of trailing off into things that have no
+ * time, and buys room for a fourth row.
  *
- * The inbox line is the app's own count, computed with the same rule as the stat
- * row (action == "reply"), so a glance can never disagree with the screen.
+ * Counts rather than titles down there on purpose: at half width an
+ * auto-generated title like "Reply: Manychat — Brutally honest advice…"
+ * truncates to noise, and the number is the part you act on.
  */
 struct TimelineView: View {
     let entry: Entry
 
-    private var timed: [DayItem] { Array(entry.snapshot.timed.prefix(3)) }
-    private var anytime: [DayItem] { Array(entry.snapshot.anytime.prefix(2)) }
+    private var timed: [DayItem] { Array(entry.snapshot.timed.prefix(4)) }
+    private var openCount: Int { entry.snapshot.anytimeTotal ?? entry.snapshot.anytime.count }
     private var replies: Int { entry.snapshot.needsReply ?? 0 }
+
+    private func capsuleRow(_ icon: String, _ text: String, _ tint: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+                .foregroundColor(tint)
+            Text(text)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -187,12 +210,14 @@ struct TimelineView: View {
                 }
             }
 
-            if entry.snapshot.items.isEmpty && replies == 0 {
-                Spacer()
-                Text("Nothing left today")
+            if timed.isEmpty {
+                Spacer(minLength: 0)
+                Text(entry.snapshot.total == 0 && replies == 0
+                     ? "Nothing left today"
+                     : "Nothing at a set time")
                     .font(.system(size: 13))
                     .foregroundColor(faint)
-                Spacer()
+                Spacer(minLength: 0)
             } else {
                 ForEach(timed, id: \.self) { item in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -212,42 +237,24 @@ struct TimelineView: View {
                         }
                     }
                 }
-
-                // Untimed work, marked by a dot rather than a fake time — these
-                // are not scheduled and shouldn't pretend to be.
-                ForEach(anytime, id: \.self) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("•")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(faint)
-                            .frame(width: 58, alignment: .leading)
-                        Text(item.title)
-                            .font(.system(size: 13))
-                            .foregroundColor(Color(white: 0.82))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        if item.subtaskTotal > 0 {
-                            Text("\(item.subtaskDone)/\(item.subtaskTotal)")
-                                .font(.system(size: 10))
-                                .foregroundColor(faint)
-                        }
-                    }
-                }
-
                 Spacer(minLength: 0)
+            }
 
-                if replies > 0 {
-                    HStack(spacing: 5) {
-                        Image(systemName: "envelope.fill")
-                            .font(.system(size: 9))
-                            .foregroundColor(accent)
-                        Text("\(replies) need\(replies == 1 ? "s" : "") a reply")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(accent)
-                        Spacer(minLength: 0)
+            // The two things that aren't the schedule, side by side.
+            if replies > 0 || openCount > 0 {
+                HStack(spacing: 8) {
+                    if replies > 0 {
+                        capsuleRow("envelope.fill",
+                                   "\(replies) need\(replies == 1 ? "s" : "") a reply",
+                                   accent)
                     }
-                    .padding(.top, 2)
+                    if openCount > 0 {
+                        capsuleRow("circle.dashed",
+                                   "\(openCount) open task\(openCount == 1 ? "" : "s")",
+                                   Color(white: 0.72))
+                    }
                 }
+                .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -29,8 +29,14 @@ function todayISO() {
 export function buildSnapshot({ tasks = [], events = [], emails = [], todayISO: today = todayISO() }) {
   const items = []
 
+  /* An undated task belongs to today — that is the app's own rule
+     (App.jsx: t.date === selectedISO || (!t.date && isTodayView)), and it is
+     where the "anytime" work actually lives. Filtering on date === today
+     dropped every one of them, so the widget claimed a day had no loose ends
+     when it had several. */
   for (const t of tasks) {
-    if (t.date !== today || t.completed || t.deletedAt) continue
+    const onToday = t.date === today || !t.date
+    if (!onToday || t.completed || t.deletedAt) continue
     items.push({
       title: t.title,
       time: t.time || '',

@@ -53,7 +53,8 @@ ok('empty day is safe', buildSnapshot({ todayISO: TODAY }).items.length === 0)
     tasks: [
       { title: 'Client Work', date: TODAY, time: '1:00 PM', subtasks: [] },
       { title: 'Call the venue', date: TODAY, time: null, subtasks: [] },
-      { title: 'Invoice Calvin', date: TODAY, time: null, subtasks: [] },
+      // Undated is how the app actually stores an "anytime" task.
+      { title: 'Invoice Calvin', date: null, time: null, subtasks: [] },
     ],
     events: [{ title: 'Lost Saints', date: TODAY, time: '10:30 AM' }],
     emails: [
@@ -66,6 +67,14 @@ ok('empty day is safe', buildSnapshot({ todayISO: TODAY }).items.length === 0)
   ok('timed/anytime totals correct', s.timedTotal === 2 && s.anytimeTotal === 2)
   ok('needsReply counts only action=reply', s.needsReply === 2)
   ok('anytime sorts after timed', s.items[0].kind !== 'anytime' && s.items.at(-1).kind === 'anytime')
+
+  // Undated tasks belong to today; a completed one still doesn't show.
+  const un = buildSnapshot({ todayISO: TODAY, tasks: [
+    { title: 'Loose end', date: null, time: null, subtasks: [] },
+    { title: 'Done loose end', date: null, time: null, completed: true, subtasks: [] },
+  ] })
+  ok('undated task included as anytime', un.items.length === 1 && un.items[0].kind === 'anytime')
+  ok('completed undated task excluded', !un.items.some(i => i.title === 'Done loose end'))
 
   const none = buildSnapshot({ todayISO: TODAY, tasks: [], events: [], emails: [] })
   ok('empty day reports zero replies', none.needsReply === 0 && none.total === 0)
