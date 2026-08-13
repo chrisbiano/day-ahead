@@ -33,6 +33,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // MARK: - Remote notifications
+    //
+    // iOS delivers the APNs device token to the app delegate and nowhere else.
+    // Capacitor's PushNotifications plugin can't receive it directly, so it
+    // listens for these two notifications instead — without this forwarding the
+    // JS `registration` event never fires and the token is silently lost. The
+    // symptom is a "Turn on" button that hangs, which is exactly what the
+    // timeout in pushNative.js reports rather than spinning forever.
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications,
+                                        object: deviceToken)
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications,
+                                        object: error)
+    }
+
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {

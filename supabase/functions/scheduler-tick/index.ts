@@ -4,22 +4,20 @@
 //
 // Deploy with "Verify JWT" OFF. Needs secrets:
 //   CRON_SECRET         — matched against the x-cron-secret header the cron sends
-//   VAPID_PRIVATE_KEY   — same one push-send uses
+//   VAPID_PRIVATE_KEY   — same one push-send uses            } browsers
 //   VAPID_PUBLIC_KEY    — the public half (VITE_VAPID_PUBLIC_KEY's value)
 //   VAPID_SUBJECT       — e.g. mailto:chris@fastrosecreative.com
+//   APNS_*              — the iPhone app, see _shared/apns.ts
 //   ANTHROPIC_API_KEY   — for the brief (same secret gmail-messages uses)
 //   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — to read the day's calendar
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
-import webpush from 'npm:web-push@3.6.7'
+import { sendToUser } from '../_shared/pushSend.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const CRON_SECRET = Deno.env.get('CRON_SECRET')
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:sentinel@example.com'
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
 const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')
@@ -34,26 +32,6 @@ const json = (body: unknown, status = 200) =>
 
 async function fetchT(url: string, opts: RequestInit = {}, ms = 10000) {
   try { return await fetch(url, { ...opts, signal: AbortSignal.timeout(ms) }) } catch { return null }
-}
-
-/* ---------- push ---------- */
-async function sendToUser(admin: any, userId: string, payload: unknown) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
-  const { data: subs } = await admin
-    .from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('user_id', userId)
-  const body = JSON.stringify(payload)
-  const dead: string[] = []
-  for (const s of subs ?? []) {
-    try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body)
-    } catch (e: any) {
-      if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.id)
-      else console.error('push error', e?.statusCode, e?.message)
-    }
-  }
-  if (dead.length) await admin.from('push_subscriptions').delete().in('id', dead)
-  return (subs ?? []).length
 }
 
 /* ---------- reminders ---------- */

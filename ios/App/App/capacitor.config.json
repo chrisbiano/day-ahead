@@ -9,6 +9,7 @@
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"PreferencesPlugin",
+		"PushNotificationsPlugin",
 		"StatusBarPlugin"
 	]
 }

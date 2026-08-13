@@ -9,5 +9,16 @@
 	<array>
 		<string>group.app.dayahead</string>
 	</array>
+
+	<!-- Remote notifications. "development" is what a build installed from Xcode
+	     needs; Xcode rewrites this to "production" for App Store and TestFlight
+	     archives, which is why the server tries the production APNs host first
+	     and falls back to sandbox rather than trusting a fixed setting.
+
+	     This entitlement only takes effect against a provisioning profile that
+	     has the Push Notifications capability enabled — i.e. a real paid team.
+	     Until then it is inert, and the simulator ignores it entirely. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

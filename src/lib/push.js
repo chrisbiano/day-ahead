@@ -1,8 +1,14 @@
 import { supabase } from './supabase'
+import {
+  isNativePush, enableNativePush, disableNativePush, currentNativeToken,
+} from './pushNative'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
 
-export const isPushConfigured = Boolean(VAPID_PUBLIC_KEY)
+/* On the iPhone app this module is a thin front for pushNative — same four
+   calls, so the settings UI doesn't need to know which transport it's on. Only
+   the browser needs VAPID; the native app is configured by virtue of existing. */
+export const isPushConfigured = isNativePush() || Boolean(VAPID_PUBLIC_KEY)
 
 // Web Push needs the VAPID public key as a Uint8Array, not the base64url string.
 function urlBase64ToUint8Array(base64) {
@@ -31,6 +37,9 @@ export function isIOS() {
 // What's blocking notifications, if anything — so the UI can guide instead of
 // just greying a button out.
 export function pushStatus() {
+  // The native app has none of the web plumbing below and needs none of it —
+  // no install step, no service worker, no PushManager.
+  if (isNativePush()) return 'ready'
   if (!isPushConfigured) return 'unconfigured'
   const hasApi = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
   if (!hasApi) {
@@ -66,6 +75,7 @@ async function readyRegistration(ms = 8000) {
 }
 
 export async function currentSubscription() {
+  if (isNativePush()) return currentNativeToken()
   if (!('serviceWorker' in navigator)) return null
   // Used on mount to show on/off state — must never hang, so on timeout just
   // report "no subscription" rather than freezing the settings panel.
@@ -81,6 +91,8 @@ export async function currentSubscription() {
 // or throws with a message the UI can show. Every await is bounded so the caller
 // can always leave the busy state.
 export async function enablePush() {
+  if (isNativePush()) return enableNativePush()
+
   const permission = await withTimeout(
     Notification.requestPermission(),
     30000,
@@ -130,6 +142,8 @@ export async function enablePush() {
 }
 
 export async function disablePush() {
+  if (isNativePush()) return disableNativePush()
+
   const sub = await currentSubscription()
   if (!sub) return
   const endpoint = sub.endpoint
