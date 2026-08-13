@@ -117,29 +117,29 @@ struct NextUpView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("NEXT UP")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .tracking(0.8)
                 .foregroundColor(faint)
 
             if let item = nextUp(entry.snapshot) {
                 if !item.time.isEmpty {
                     Text(item.time)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundColor(accent)
                 }
                 Text(item.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 16.5, weight: .medium))
                     .foregroundColor(.white)
                     .lineLimit(3)
                     .minimumScaleFactor(0.8)
                 if item.subtaskTotal > 0 {
                     Text("\(item.subtaskDone)/\(item.subtaskTotal) done")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(faint)
                 }
             } else {
                 Text("Nothing scheduled")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(faint)
             }
 
@@ -147,7 +147,7 @@ struct NextUpView: View {
 
             if entry.snapshot.total > 1 {
                 Text("\(entry.snapshot.total) today")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(faint)
             }
         }
@@ -177,10 +177,10 @@ struct TimelineView: View {
     private func capsuleRow(_ icon: String, _ text: String, _ tint: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.system(size: 10.5))
                 .foregroundColor(tint)
             Text(text)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12.5, weight: .medium))
                 .foregroundColor(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -199,13 +199,13 @@ struct TimelineView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("TODAY")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .tracking(0.8)
                     .foregroundColor(faint)
                 Spacer()
                 if entry.snapshot.total > 0 {
                     Text("\(entry.snapshot.total)")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(faint)
                 }
             }
@@ -215,24 +215,24 @@ struct TimelineView: View {
                 Text(entry.snapshot.total == 0 && replies == 0
                      ? "Nothing left today"
                      : "Nothing at a set time")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(faint)
                 Spacer(minLength: 0)
             } else {
                 ForEach(timed, id: \.self) { item in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(item.time)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(.system(size: 12.5, weight: .medium, design: .rounded))
                             .foregroundColor(accent)
-                            .frame(width: 58, alignment: .leading)
+                            .frame(width: 64, alignment: .leading)
                         Text(item.title)
-                            .font(.system(size: 13))
+                            .font(.system(size: 14.5))
                             .foregroundColor(.white)
                             .lineLimit(1)
                         Spacer(minLength: 0)
                         if item.subtaskTotal > 0 {
                             Text("\(item.subtaskDone)/\(item.subtaskTotal)")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundColor(faint)
                         }
                     }
