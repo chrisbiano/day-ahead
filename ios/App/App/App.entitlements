@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The shared container the app writes and the widget reads. Both targets
+	     must name it IDENTICALLY, or each process quietly gets its own empty
+	     box and the widget just looks broken. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.app.dayahead</string>
+	</array>
+</dict>
+</plist>
