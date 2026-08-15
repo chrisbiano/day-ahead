@@ -483,8 +483,13 @@ function SignatureEditor({ account, onSave }) {
         </div>
       )}
 
+      {/* The preview renders HTML pasted out of Gmail, and Gmail signatures are
+          almost always a table with a fixed pixel width — wider than a phone.
+          Capping images isn't enough; a table ignores that entirely. So it
+          scrolls on its own rather than widening the panel: the signature stays
+          faithful, which is the point of a preview, and settings stays put. */}
       {!open && savedSig && (
-        <div className="mt-2 rounded-lg border border-line bg-bg p-3">
+        <div className="mt-2 rounded-lg border border-line bg-bg p-3 min-w-0 overflow-x-auto">
           <div
             className="text-sm text-muted [&_a]:text-fg [&_img]:max-w-full [&_img]:h-auto"
             dangerouslySetInnerHTML={{ __html: savedSig }}
@@ -1046,7 +1051,10 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto"
+      // Full-bleed on a phone, inset on a larger screen. It looked full-width
+      // before only because an over-wide child stretched it past the viewport,
+      // which is what made it slide around. Same look, on purpose.
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center px-0 py-4 sm:p-4 bg-black/60 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -1067,7 +1075,13 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-6 overflow-y-auto flex-1 min-h-0">
+        {/* overflow-x-hidden is deliberate. Setting overflow-y alone makes the
+            browser compute overflow-x as auto, so any single over-wide child
+            turns the whole panel into a horizontal scroller — which reads as
+            the settings sliding around under your thumb. Everything in here is
+            meant to wrap; the one thing that genuinely can't (a pasted email
+            signature) carries its own scroller instead. */}
+        <div className="px-5 py-4 space-y-6 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
           {/* Preferences */}
           <div>
             <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">Preferences</h3>
