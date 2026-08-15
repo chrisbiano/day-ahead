@@ -13,6 +13,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
 import { sendToUser } from '../_shared/pushSend.ts'
+import { isQuiet } from '../_shared/userSwitches.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -47,8 +48,26 @@ async function fireReminders(admin: any) {
     .is('deleted_at', null)
     .lte('remind_at', new Date(now).toISOString())
     .gte('remind_at', new Date(now - REPEAT_WINDOW_MIN * 60_000).toISOString())
+
+  /* Who is on quiet mode, in one query rather than one per task. A busy minute
+     can carry reminders for many people, and asking the database the same
+     question once per row is how a tick starts running long. */
+  const quietUsers = new Set<string>()
+  const userIds = [...new Set((cands ?? []).map((t: any) => t.user_id))]
+  if (userIds.length) {
+    const { data: prefs } = await admin
+      .from('user_prefs').select('user_id, quiet_until').in('user_id', userIds)
+    for (const p of prefs ?? []) if (isQuiet(p.quiet_until)) quietUsers.add(p.user_id)
+  }
+
   let fired = 0
   for (const t of cands ?? []) {
+    /* Skipped rather than marked fired, deliberately. Leaving reminder_fired_at
+       alone means a first ping simply lapses with its grace window — quiet
+       hours don't produce a pile of notifications the moment quiet ends — while
+       something still outstanding resumes repeating when they're back. */
+    if (quietUsers.has(t.user_id)) continue
+
     const ra = new Date(t.remind_at).getTime()
     const firedAt = t.reminder_fired_at ? new Date(t.reminder_fired_at).getTime() : null
     const repeat = (t.reminder_repeat_min || 0) * 60_000
@@ -169,10 +188,14 @@ async function eventsToday(admin: any, userId: string, localDate: string, tz: st
 async function sendBriefs(admin: any) {
   if (!ANTHROPIC_API_KEY) return 0
   const { data: prefs } = await admin
-    .from('user_prefs').select('user_id, timezone, last_brief_on, brief_time').eq('morning_brief', true)
+    .from('user_prefs')
+    .select('user_id, timezone, last_brief_on, brief_time, ai_enabled, quiet_until')
+    .eq('morning_brief', true)
   let sent = 0
   for (const p of prefs ?? []) {
     if (!p.timezone) continue
+    // Quiet mode covers the brief too — it is a notification like any other.
+    if (isQuiet(p.quiet_until)) continue
     const { date, hour, minute } = localParts(p.timezone)
     // Fire once, in a short window at or just after the user's chosen send time
     // (default 7:00). Comparing minutes-past-midnight handles any hour cleanly.
@@ -204,18 +227,24 @@ async function sendBriefs(admin: any) {
       `Emails needing a reply: ${needReply ?? 0}.`,
     ].join('\n\n')
 
+    /* With the AI switched off the brief still sends — it just falls through to
+       the plain-counts version below. Losing the morning brief entirely would
+       make turning the AI off feel like a punishment rather than a choice, and
+       the counts are the half most people act on anyway. */
     let brief = ''
-    try {
-      const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
-      const res = await anthropic.messages.create({
-        model: BRIEF_MODEL,
-        max_tokens: 400,
-        system: `You write Chris's one-glance morning brief for Day Ahead, his daily command center. He runs a video production company and plays in a band. Given the day's facts, write 2–4 short sentences (or tight lines) that tell him what matters today: the shape of his schedule, anything time-sensitive, and what's waiting on him. Anything marked (done) is already finished — never present it as pending or ahead; skip it or at most note it's handled. Warm, direct, concrete — name the actual things. No greeting like "Good morning", no filler, no markdown headers. If the day is light, say so briefly. Plain text only.`,
-        messages: [{ role: 'user', content: facts }],
-      })
-      brief = (res.content.find((b: any) => b.type === 'text')?.text ?? '').trim()
-    } catch (e) {
-      console.error('brief generation failed', (e as Error).message)
+    if (p.ai_enabled !== false) {
+      try {
+        const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
+        const res = await anthropic.messages.create({
+          model: BRIEF_MODEL,
+          max_tokens: 400,
+          system: `You write Chris's one-glance morning brief for Day Ahead, his daily command center. He runs a video production company and plays in a band. Given the day's facts, write 2–4 short sentences (or tight lines) that tell him what matters today: the shape of his schedule, anything time-sensitive, and what's waiting on him. Anything marked (done) is already finished — never present it as pending or ahead; skip it or at most note it's handled. Warm, direct, concrete — name the actual things. No greeting like "Good morning", no filler, no markdown headers. If the day is light, say so briefly. Plain text only.`,
+          messages: [{ role: 'user', content: facts }],
+        })
+        brief = (res.content.find((b: any) => b.type === 'text')?.text ?? '').trim()
+      } catch (e) {
+        console.error('brief generation failed', (e as Error).message)
+      }
     }
     if (!brief) {
       brief = `${events.length} event${events.length === 1 ? '' : 's'}, ${openTasks.length} task${openTasks.length === 1 ? '' : 's'}, and ${needReply ?? 0} email${(needReply ?? 0) === 1 ? '' : 's'} to reply to.`

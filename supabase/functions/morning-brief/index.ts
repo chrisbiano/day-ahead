@@ -9,6 +9,7 @@
 //   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (for the day's calendar).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
+import { aiEnabled } from '../_shared/userSwitches.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -165,6 +166,10 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_API_KEY) return json({ error: 'ANTHROPIC_API_KEY is not set on this function' }, 500)
 
   const userId = u.user.id
+  // AI off: the client shows the day's counts instead of a written brief, the
+  // same fallback the scheduled version uses.
+  if (!(await aiEnabled(admin, userId))) return json({ aiDisabled: true })
+
   let body: any = {}
   try { body = await req.json() } catch { /* none */ }
   const tz = body.tz || 'UTC'

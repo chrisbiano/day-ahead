@@ -5,6 +5,7 @@
 //
 // Deploy with "Verify JWT" ON. Needs ANTHROPIC_API_KEY (same secret triage uses).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { aiEnabled } from '../_shared/userSwitches.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -75,6 +76,11 @@ Deno.serve(async (req) => {
   if (uErr || !u?.user) return json({ error: 'unauthorized' }, 401)
 
   if (!ANTHROPIC_API_KEY) return json({ error: 'ANTHROPIC_API_KEY is not set on this function' }, 500)
+
+  /* 200 rather than an error: the user turned this off deliberately, and the
+     client falls back to saving what they typed as a plain task. An error here
+     would surface as a failure for a setting working exactly as asked. */
+  if (!(await aiEnabled(admin, u.user.id))) return json({ aiDisabled: true })
 
   let body: any = {}
   try { body = await req.json() } catch { /* none */ }

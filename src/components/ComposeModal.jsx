@@ -127,6 +127,12 @@ export default function ComposeModal({ email, onClose, onSent }) {
       setDrafting(false)
       return
     }
+    // AI off — the compose box still works, there's just nothing pre-written.
+    if (data?.aiDisabled) {
+      setError('AI drafting is off. You can write your reply below, or turn AI features back on in Settings.')
+      setDrafting(false)
+      return
+    }
     setText(data.draft || '')
     setDrafting(false)
   }

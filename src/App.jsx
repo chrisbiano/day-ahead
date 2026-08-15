@@ -106,7 +106,10 @@ export default function App() {
 
   // Captures the browser timezone (so the morning brief lands at 7am local) and
   // holds the brief on/off toggle.
-  const { morningBrief, setMorningBrief, briefTime, setBriefTime } = useUserPrefs()
+  const {
+    morningBrief, setMorningBrief, briefTime, setBriefTime,
+    aiEnabled, setAiEnabled, quietUntil, setQuietUntil, isQuiet,
+  } = useUserPrefs()
 
   // The morning brief lives as a card at the top of the dashboard until dismissed.
   const { brief, loading: briefLoading, show: showBrief, dismiss: dismissBrief, refresh: refreshBrief } =
@@ -374,6 +377,11 @@ export default function App() {
         try { const b = await error.context?.json?.(); msg = b?.message || b?.error || error.message } catch { msg = error.message }
       }
       throw new Error(msg || 'Could not read that')
+    }
+    // The user switched the AI off. Say so plainly instead of failing — they
+    // can still add the task by hand, and a vague error would look like a bug.
+    if (data?.aiDisabled) {
+      throw new Error('AI features are off. Turn them back on in Settings, or add the task directly.')
     }
     // Older deployed function returns { task } (create-only) — treat it as a
     // create command so the assistant keeps working until the new one ships.
@@ -989,6 +997,11 @@ export default function App() {
         onMorningBriefChange={setMorningBrief}
         briefTime={briefTime}
         onBriefTimeChange={setBriefTime}
+        aiEnabled={aiEnabled}
+        onAiEnabledChange={setAiEnabled}
+        quietUntil={quietUntil}
+        isQuiet={isQuiet}
+        onQuietUntilChange={setQuietUntil}
       />
 
       {/* Floating A.I. assistant — bottom-left, always in reach. Creates, edits,

@@ -60,6 +60,9 @@ export default function useMorningBrief({ enabled, briefTime }) {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
         const { data, error } = await supabase.functions.invoke('morning-brief', { body: { tz, today } })
         if (error || data?.error) throw new Error(data?.error || error?.message || 'brief failed')
+        // AI off: no written brief today. Leave the card unshown rather than
+        // caching an empty one, which would render as a blank panel.
+        if (data?.aiDisabled) { setLoading(false); return }
         writeCache({ date: today, text: data.brief, dismissed: false, generatedAt: Date.now() })
         setText(data.brief)
         setDismissed(false)

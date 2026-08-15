@@ -7,6 +7,7 @@
 // ANTHROPIC_API_KEY (same secret gmail-messages uses).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
+import { aiEnabled } from '../_shared/userSwitches.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
@@ -131,6 +132,10 @@ Deno.serve(async (req) => {
   if (uErr || !u?.user) return json({ error: 'unauthorized' }, 401)
 
   if (!ANTHROPIC_API_KEY) return json({ error: 'ANTHROPIC_API_KEY is not set on this function' }, 500)
+
+  // AI off: no drafted reply. The compose box still opens and still sends —
+  // the user just writes it themselves.
+  if (!(await aiEnabled(admin, u.user.id))) return json({ aiDisabled: true })
 
   let body: any = {}
   try { body = await req.json() } catch { /* no body */ }

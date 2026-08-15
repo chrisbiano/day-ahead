@@ -11,6 +11,7 @@
 // `remaining` hits zero.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { encryptToken, decryptToken, upgradeStoredToken } from '../_shared/tokenCrypto.ts'
+import { aiEnabled } from '../_shared/userSwitches.ts'
 import Anthropic from 'npm:@anthropic-ai/sdk'
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
@@ -314,7 +315,16 @@ Deno.serve(async (req) => {
   const key = (accountEmail: string, id: string) => `${accountEmail} ${id}`
   const knownIds = new Set((known ?? []).map((k: any) => key(k.account_email, k.message_id)))
   const todo = unreadSeen.filter((s) => !knownIds.has(key(s.account.email, s.id)))
-  const batchIds = todo.slice(0, MAX_PER_RUN)
+
+  /* With the AI switched off, nothing new is classified — and, more to the
+     point, step 3 below never runs, so message BODIES are never fetched. That
+     is the difference between "we don't send your mail to an AI" and "we don't
+     read your mail at all", and only the second one is worth claiming.
+
+     Verdicts already stored stay visible and reconciliation continues, so the
+     inbox doesn't empty itself the moment someone flips the switch. */
+  const useAi = await aiEnabled(admin, userId)
+  const batchIds = useAi ? todo.slice(0, MAX_PER_RUN) : []
 
   // 3. Fetch full bodies for just this batch, in parallel.
   const batch = (await Promise.all(batchIds.map(async ({ id, account }) => {
@@ -438,7 +448,11 @@ Deno.serve(async (req) => {
     emails: emails ?? [],
     classified,
     cleared,
-    remaining: Math.max(0, todo.length - batchIds.length),
+    // Zero when the AI is off, not the size of the unjudged pile — the client
+    // calls again while `remaining` is positive, and it would loop forever
+    // waiting for a backlog that nothing is going to work through.
+    remaining: useAi ? Math.max(0, todo.length - batchIds.length) : 0,
+    aiDisabled: !useAi,
     accountErrors,
   })
 })

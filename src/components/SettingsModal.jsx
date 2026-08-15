@@ -284,6 +284,120 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
  * and a <script> or an onerror= arriving via the clipboard would run there.
  * Tags and event handlers go; formatting, links, colours and images stay,
  * because those are the whole point of a signature. */
+/* Quiet mode — stop reminders and the brief for a while.
+ *
+ * Every option except the last sets a real moment, so it lapses on its own. A
+ * plain on/off switch is how someone silences the app before a shoot and finds
+ * out three weeks later that it never started again — and they'd blame the app,
+ * fairly. "Until I turn it back on" is still offered, because sometimes that IS
+ * what you mean, but it's the deliberate choice rather than the default shape.
+ */
+function QuietMode({ quietUntil, isQuiet, onChange }) {
+  const endOfToday = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return d.toISOString() }
+  const inHours = (h) => new Date(Date.now() + h * 3600_000).toISOString()
+
+  const presets = [
+    { label: 'For an hour', value: () => inHours(1) },
+    { label: 'Rest of today', value: endOfToday },
+    { label: 'For a week', value: () => inHours(24 * 7) },
+    { label: 'Until I turn it back on', value: () => 'infinity' },
+  ]
+
+  const describe = () => {
+    if (quietUntil === 'infinity') return 'Quiet until you turn it back on.'
+    const d = new Date(quietUntil)
+    if (isNaN(d.getTime())) return 'Quiet.'
+    const sameDay = d.toDateString() === new Date().toDateString()
+    const when = sameDay
+      ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+    return `Quiet until ${when}.`
+  }
+
+  return (
+    <div>
+      <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">Quiet mode</h3>
+      <div className="border border-line2 rounded-xl p-3.5">
+        {isQuiet ? (
+          <>
+            <p className="text-sm text-fg font-medium">{describe()}</p>
+            <p className="text-xs text-muted mt-1">
+              Reminders and your morning brief are paused. Everything else works normally.
+            </p>
+            <button
+              onClick={() => onChange(null)}
+              className="mt-3 text-xs font-medium text-accent border border-line2 rounded-lg px-3 py-1.5 hover:bg-surface2 transition-colors"
+            >
+              Turn notifications back on
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-fg font-medium">Notifications are on</p>
+            <p className="text-xs text-muted mt-1 mb-3">
+              Pause reminders and the morning brief without turning anything off for good.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {presets.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => onChange(p.value())}
+                  className="text-xs font-medium text-muted hover:text-fg border border-line2 rounded-lg px-2.5 py-1.5 transition-colors"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* The AI switch.
+ *
+ * Worth being specific about what stops, because "turn off AI" in most products
+ * means "lose half the app". Here the features degrade rather than disappear,
+ * and saying so plainly is the difference between a setting people trust and
+ * one nobody dares touch.
+ */
+function AiControl({ enabled, onChange }) {
+  return (
+    <div>
+      <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">AI features</h3>
+      <div className="border border-line2 rounded-xl p-3.5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-fg font-medium">
+              {enabled ? 'AI is on' : 'AI is off'}
+            </p>
+            <p className="text-xs text-muted mt-1">
+              {enabled
+                ? 'Day Ahead sorts your inbox, writes your morning brief, understands typed tasks, and drafts replies.'
+                : 'Nothing about your mail is sent anywhere for analysis.'}
+            </p>
+          </div>
+          <Toggle checked={enabled} onChange={() => onChange(!enabled)} />
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-line2">
+          <p className="text-xs text-muted">
+            {enabled ? (
+              <>Turning this off stops inbox triage and reply drafting, and your brief
+              becomes a plain count of the day. Your calendar, tasks, subtasks, reminders,
+              and notes are unaffected — and your email is no longer read at all.</>
+            ) : (
+              <>Your calendar, tasks, reminders, and notes all work as normal. Mail already
+              sorted stays sorted; new mail simply isn’t triaged.</>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function cleanSignatureHtml(html) {
   return String(html || '')
     .replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
@@ -897,7 +1011,7 @@ function AccountRow({ account, onSetPurpose, onSetSignature, onDisconnect }) {
   )
 }
 
-export default function SettingsModal({ open, onClose, settings, onChange, morningBrief, onMorningBriefChange, briefTime, onBriefTimeChange }) {
+export default function SettingsModal({ open, onClose, settings, onChange, morningBrief, onMorningBriefChange, briefTime, onBriefTimeChange, aiEnabled, onAiEnabledChange, quietUntil, isQuiet, onQuietUntilChange }) {
   const [email, setEmail] = useState(null)
   const [connecting, setConnecting] = useState(false)
   const { accounts, loading: accountsLoading, disconnect, setPurpose, setSignature } = useConnectedAccounts()
@@ -1021,6 +1135,21 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
               briefTime={briefTime}
               onBriefTimeChange={onBriefTimeChange}
             />
+          )}
+
+          {/* Quiet mode sits apart from Notifications on purpose: it's enforced
+              on the server, so it still applies when this device has no
+              notifications turned on at all. */}
+          {isSupabaseConfigured && (
+            <QuietMode
+              quietUntil={quietUntil}
+              isQuiet={isQuiet}
+              onChange={onQuietUntilChange}
+            />
+          )}
+
+          {isSupabaseConfigured && (
+            <AiControl enabled={aiEnabled} onChange={onAiEnabledChange} />
           )}
 
           {/* Connected mailboxes */}
