@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support · Day Ahead</title>
+    <meta name="description" content="Get help with Day Ahead — how to reach us, and answers to the questions that come up most." />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg:#0B0B0C; --surface:#161616; --line:#2A2A2A; --fg:#F7F7F4; --muted:#9C9C9C; --accent:#F5C878; }
+      * { box-sizing: border-box; }
+      body {
+        margin:0; background:var(--bg); color:var(--fg);
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        line-height:1.7; -webkit-font-smoothing:antialiased;
+      }
+      .wrap { max-width:44rem; margin:0 auto; padding:3rem 1.5rem 5rem; }
+      .brand { display:flex; align-items:center; gap:.7rem; margin-bottom:3rem; text-decoration:none; color:inherit; }
+      .brand img { width:38px; height:38px; border-radius:10px; }
+      .brand span { font-family:'Instrument Serif',Georgia,serif; font-size:1.35rem; letter-spacing:-.01em; }
+      h1 { font-family:'Instrument Serif',Georgia,serif; font-size:2.4rem; line-height:1.15; margin:0 0 .4rem; font-weight:400; }
+      h2 { font-family:'Instrument Serif',Georgia,serif; font-size:1.45rem; margin:2.6rem 0 .6rem; font-weight:400; }
+      h3 { font-size:1rem; font-weight:500; color:var(--fg); margin:1.8rem 0 .3rem; }
+      p, li { color:var(--muted); font-size:.98rem; }
+      strong { color:var(--fg); font-weight:500; }
+      ul { padding-left:1.1rem; }
+      li { margin:.4rem 0; }
+      .updated { color:#6E6E6E; font-size:.85rem; margin-bottom:2.5rem; }
+      .callout { background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:12px; padding:1rem 1.2rem; margin:1.6rem 0; }
+      .callout p { margin:0; color:var(--fg); }
+      a { color:var(--accent); }
+      footer { border-top:1px solid var(--line); margin-top:3.5rem; padding-top:1.4rem; font-size:.82rem; color:#6E6E6E; }
+      @media (prefers-color-scheme: light) {
+        :root { --bg:#FAFAF8; --surface:#FFFFFF; --line:#E6E4DE; --fg:#1A1A1C; --muted:#5A5956; --accent:#C68D34; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/icon.svg" alt="" /><span>Day Ahead</span></a>
+
+      <h1>Support</h1>
+      <p class="updated">Real answers from a real person, not a ticket queue.</p>
+
+      <div class="callout">
+        <p>
+          Email <a href="mailto:support@dayahead.app">support@dayahead.app</a> — most
+          messages get a reply within one business day.
+        </p>
+      </div>
+
+      <p>
+        Tell us what you were doing and what happened instead. If something looks wrong on
+        screen, a screenshot saves a round trip.
+      </p>
+
+      <h2>Reporting a problem from inside the app</h2>
+      <p>
+        Open <strong>Settings</strong> and use <strong>Report a problem</strong>. It sends
+        your message along with the app version and any recent errors, which usually means
+        we can find the cause without asking you to reproduce it.
+      </p>
+
+      <h2>Questions that come up most</h2>
+
+      <h3>Notifications aren't arriving</h3>
+      <p>
+        Open <strong>Settings → Notifications</strong> and check they're on for the device
+        you're holding — they're enabled per device, not per account. Then use
+        <strong>Send a test notification</strong>. If the test arrives but reminders don't,
+        the reminder time is the thing to check; if the test doesn't arrive either, your
+        device's own notification settings are blocking Day Ahead.
+      </p>
+
+      <h3>My calendar or email stopped updating</h3>
+      <p>
+        Google connections expire, usually after a password change or a security review on
+        your Google account. Open <strong>Settings</strong>, disconnect the account, and
+        connect it again. Nothing you've written is affected — tasks and notes are stored
+        separately from the connection.
+      </p>
+
+      <h3>Why does Day Ahead need access to Gmail?</h3>
+      <p>
+        To show you what's waiting on a reply and to send the replies you write. It reads
+        the sender, subject, and preview line to sort your inbox; it never sends anything
+        without you pressing send. If you'd rather not connect email at all, the calendar
+        and task side of Day Ahead works on its own.
+      </p>
+
+      <h3>Can I get my data out?</h3>
+      <p>
+        Yes. <strong>Settings → Export my data</strong> produces a readable document of
+        everything Day Ahead holds about you — tasks, notes, preferences, and connected
+        accounts — which you can save or print to PDF. No request needed and no waiting.
+      </p>
+
+      <h3>How do I delete my account?</h3>
+      <p>
+        <strong>Settings → Delete my account</strong>. You'll see exactly what will be
+        removed before anything happens. Deletion is immediate and permanent — it revokes
+        Day Ahead's access to your Google account and erases your data from our systems, so
+        export first if you want a copy. See the
+        <a href="/privacy.html">privacy policy</a> for what that covers.
+      </p>
+
+      <h3>Is my email being read by AI?</h3>
+      <p>
+        The sender, subject, and preview line of incoming mail are sent to Anthropic's
+        Claude to sort your inbox and write your morning brief. Full message bodies aren't,
+        your mail isn't used to train any model, and nothing is shared with advertisers.
+        The <a href="/privacy.html">privacy policy</a> sets this out in full.
+      </p>
+
+      <h2>Something else</h2>
+      <p>
+        Feature requests, billing questions, or anything not covered here — email
+        <a href="mailto:support@dayahead.app">support@dayahead.app</a>. Requests genuinely
+        do shape what gets built next.
+      </p>
+
+      <footer>
+        Day Ahead · Wake up to clarity ·
+        <a href="/privacy.html">Privacy</a> ·
+        <a href="/terms.html">Terms</a>
+      </footer>
+    </div>
+  </body>
+</html>
