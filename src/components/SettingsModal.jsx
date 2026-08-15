@@ -984,7 +984,11 @@ function AccountRow({ account, onSetPurpose, onSetSignature, onDisconnect }) {
         </div>
       ) : saved.trim() ? (
         <div className="flex items-center justify-between gap-3 mt-2">
-          <p className="text-xs text-muted italic truncate">“{gist}”</p>
+          {/* min-w-0 is what makes truncate work here. A flex child defaults to
+              min-width:auto, and truncate sets white-space:nowrap — so without
+              this the paragraph's minimum width is the WHOLE description and it
+              widens the panel instead of ellipsing. */}
+          <p className="text-xs text-muted italic truncate min-w-0">“{gist}”</p>
           <button
             onClick={open}
             className="text-xs text-faint hover:text-fg border border-line px-2.5 py-1 rounded-full shrink-0 transition-colors"
