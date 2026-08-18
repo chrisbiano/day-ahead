@@ -72,7 +72,7 @@ export default function Landing() {
       {/* header */}
       <header className="max-w-5xl mx-auto px-5 sm:px-8 pt-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <img src="/icon.svg" alt="" aria-hidden="true" className="w-9 h-9 rounded-[10px]" />
+          <img src="/icon.png?v=3" alt="" aria-hidden="true" className="w-9 h-9 rounded-[10px]" />
           <span className="font-display text-xl tracking-tight">Day Ahead</span>
         </div>
         <button

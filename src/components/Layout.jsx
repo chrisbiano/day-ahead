@@ -33,7 +33,7 @@ export default function Layout({ children, onOpenSettings, onRefresh, refreshing
                   Sized a touch larger than a typical header mark: it's a mostly
                   dark scene, so it needs the extra pixels for the glow to read. */}
               <img
-                src="/icon.svg"
+                src="/icon.png?v=3"
                 alt=""
                 aria-hidden="true"
                 className="w-10 h-10 sm:w-11 sm:h-11 rounded-[11px] shrink-0"
