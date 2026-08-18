@@ -31,6 +31,10 @@ export interface SendResult {
   devices: number
   sent: number
   removed: number
+  /* One line per device that did NOT deliver, naming why.
+     Silence used to be the only signal here, which meant a misconfigured key
+     and a working setup looked identical from the outside. */
+  problems: string[]
 }
 
 /**
@@ -50,7 +54,7 @@ export async function sendToUser(
     .eq('user_id', userId)
 
   const rows = subs ?? []
-  if (!rows.length) return { devices: 0, sent: 0, removed: 0 }
+  if (!rows.length) return { devices: 0, sent: 0, removed: 0, problems: [] }
 
   const webKey = vapidPublicKey || VAPID_PUBLIC_KEY
   const webUsable = Boolean(webKey && VAPID_PRIVATE_KEY)
@@ -58,20 +62,25 @@ export async function sendToUser(
 
   const body = JSON.stringify(payload)
   const dead: string[] = []
+  const problems: string[] = []
   let sent = 0
 
   // Devices are independent; one unreachable phone should not delay the others.
   await Promise.all(rows.map(async (s: any) => {
     try {
       if (s.platform === 'ios') {
-        if (!isApnsConfigured()) return
+        if (!isApnsConfigured()) {
+          problems.push('ios: APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY not all set')
+          return
+        }
         const r = await sendApns(s.endpoint, payload)
-        if (r.ok) sent++
-        else if (r.dead) dead.push(s.id)
+        if (r.ok) { sent++; return }
+        problems.push(`ios: ${r.status} ${r.reason ?? '(no reason given)'}`)
+        if (r.dead) dead.push(s.id)
         return
       }
 
-      if (!webUsable) return
+      if (!webUsable) { problems.push('web: VAPID keys not set'); return }
       await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
         body,
@@ -80,11 +89,14 @@ export async function sendToUser(
     } catch (e: any) {
       // 404 gone, 410 expired — this browser subscription is finished.
       if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.id)
-      else console.error('push error', s.platform, e?.statusCode, e?.body || e?.message)
+      else {
+        problems.push(`${s.platform}: ${e?.statusCode ?? '?'} ${e?.body || e?.message || ''}`)
+        console.error('push error', s.platform, e?.statusCode, e?.body || e?.message)
+      }
     }
   }))
 
   if (dead.length) await admin.from('push_subscriptions').delete().in('id', dead)
 
-  return { devices: rows.length, sent, removed: dead.length }
+  return { devices: rows.length, sent, removed: dead.length, problems }
 }

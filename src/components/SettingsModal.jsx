@@ -89,6 +89,11 @@ function NotificationsSection({ morningBrief, onMorningBriefChange, briefTime, o
         // The push service rejected every attempt — a delivery problem, not an
         // OS-display one. Usually a stale/expired subscription.
         setError(`Reached ${dev}, but the push service didn’t accept it. Turn notifications off and back on to refresh this device, then retry.`)
+      } else if (r.problems?.length) {
+        /* Some devices took it and some didn't. Naming the ones that failed and
+           why beats a bare success count — a partly-working setup otherwise
+           reads as fully working, and the missing device is the whole point. */
+        setError(`Sent to ${r.sent} of ${dev}. Didn't reach: ${r.problems.join('; ')}`)
       } else {
         // Accepted for delivery. If it still didn't appear, the OS is hiding it.
         setNote(
