@@ -29,14 +29,14 @@ export default function Layout({ children, onOpenSettings, onRefresh, refreshing
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center gap-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              {/* The real app icon — the same artwork as the dock / home screen.
-                  Sized a touch larger than a typical header mark: it's a mostly
-                  dark scene, so it needs the extra pixels for the glow to read. */}
+              {/* The circular mark, which carries its own transparent surround —
+                  so no corner radius here, and it sits directly on the app
+                  background rather than reading as a tile pasted on top. */}
               <img
                 src="/icon.png?v=3"
                 alt=""
                 aria-hidden="true"
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-[11px] shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
               />
               <div className="min-w-0">
                 <h1 className="font-display text-xl sm:text-2xl leading-none tracking-tight text-fg">Day Ahead</h1>
