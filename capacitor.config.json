@@ -4,5 +4,14 @@
   "webDir": "dist",
   "ios": {
     "backgroundColor": "#0B0B0C"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
   }
 }

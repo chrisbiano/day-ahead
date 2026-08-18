@@ -5,6 +5,15 @@
 	"ios": {
 		"backgroundColor": "#0B0B0C"
 	},
+	"plugins": {
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	},
 	"packageClassList": [
 		"AppPlugin",
 		"CAPBrowserPlugin",
