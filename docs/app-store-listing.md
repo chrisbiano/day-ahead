@@ -179,7 +179,7 @@ Suggested note to Apple:
 
 | Asset | Requirement | Status |
 |---|---|---|
-| App icon | 1024×1024, no alpha, no rounded corners | Existing icon is placeholder-grade |
+| App icon | 1024×1024, no alpha, no rounded corners | **Done** — Chris supplied artwork, shipped 2026-08-17 |
 | iPhone screenshots | 6.9" display, 3–10 images | Not started |
 | iPad screenshots | Only if the app ships as iPad-compatible | Decide first |
 
