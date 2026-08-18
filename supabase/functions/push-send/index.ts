@@ -49,10 +49,15 @@ Deno.serve(async (req) => {
   if (mode === 'test') {
     const result = await sendToUser(admin, u.user.id, {
       title: 'Day Ahead',
-      body: 'Notifications are on. This is your test ping. 🎯',
-      tag: 'sentinel-test',
+      body: 'Notifications are on for this browser. 🎯',
+      tag: 'sentinel-test-web',
       url: '/',
-    }, vapidPublicKey)
+    }, vapidPublicKey, {
+      title: 'Day Ahead',
+      body: 'Notifications are on for your iPhone. 🎯',
+      tag: 'sentinel-test-ios',
+      url: '/',
+    })
 
     if (result.devices === 0) {
       return json({ error: 'No devices are subscribed on this account yet.' }, 400)

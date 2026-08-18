@@ -47,6 +47,11 @@ export async function sendToUser(
   userId: string,
   payload: PushPayload,
   vapidPublicKey?: string,
+  /* Lets a caller word the iOS notification differently from the web one.
+     Used by the test ping so the notification itself says which transport
+     delivered it — on a phone carrying both the web app and the native app,
+     that is the only way to tell them apart from the outside. */
+  iosPayload?: PushPayload,
 ): Promise<SendResult> {
   const { data: subs } = await admin
     .from('push_subscriptions')
@@ -73,7 +78,7 @@ export async function sendToUser(
           problems.push('ios: APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY not all set')
           return
         }
-        const r = await sendApns(s.endpoint, payload)
+        const r = await sendApns(s.endpoint, iosPayload ?? payload)
         if (r.ok) { sent++; return }
         problems.push(`ios: ${r.status} ${r.reason ?? '(no reason given)'}`)
         if (r.dead) dead.push(s.id)
