@@ -43,9 +43,13 @@ export async function setupNativeChrome() {
       const light = document.documentElement.getAttribute('data-theme') === 'light'
         || (!document.documentElement.hasAttribute('data-theme')
           && window.matchMedia('(prefers-color-scheme: light)').matches)
-      // Style.Light means LIGHT TEXT, for a dark bar — the naming reads backwards.
-      await StatusBar.setStyle({ style: light ? Style.Dark : Style.Light })
-      await StatusBar.setBackgroundColor({ color: light ? '#fafafa' : '#0B0B0C' })
+      /* Capacitor names these after the TEXT, not the background:
+         Style.Light is "dark text for light backgrounds", Style.Dark is "light
+         text for dark backgrounds". A comment here previously claimed the
+         reverse and the mapping followed it, so the clock and battery were
+         rendered in the same tone as the bar behind them. */
+      await StatusBar.setStyle({ style: light ? Style.Light : Style.Dark })
+      await StatusBar.setBackgroundColor({ color: light ? '#FAFAF8' : '#0B0B0C' })
     }
     await apply()
 
@@ -54,6 +58,13 @@ export async function setupNativeChrome() {
     new MutationObserver(apply).observe(document.documentElement, {
       attributes: true, attributeFilter: ['data-theme'],
     })
+
+    /* On "auto" there IS no data-theme attribute, so the observer above never
+       fires when the phone itself switches at sunset — the bar kept whatever
+       style it was given at launch. Watching the media query directly is what
+       covers that case. */
+    window.matchMedia('(prefers-color-scheme: light)')
+      .addEventListener('change', apply)
   } catch (e) {
     // A missing status bar must never stop the app from starting.
     console.error('Native chrome setup failed:', e)
