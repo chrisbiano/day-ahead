@@ -90,8 +90,9 @@ export default function Landing() {
           Wake up to clarity.
         </h1>
         <p className="text-muted text-base sm:text-lg mt-5 leading-relaxed max-w-xl mx-auto">
-          Your schedule, your tasks, and every inbox — already sorted when you open your eyes.
-          Not another to-do list. The one place your whole day lives.
+          Your schedule, your tasks, and every inbox — sorted before you open your eyes.
+          Built for days that rarely go to plan: what matters is in front of you, and
+          what didn't get done moves forward on its own.
         </p>
         <div className="mt-9 flex flex-col items-center gap-3">
           <SignInButton />
@@ -111,8 +112,25 @@ export default function Landing() {
           <p className="text-muted text-sm sm:text-base leading-relaxed">
             Connect every mailbox you have. Day Ahead sorts what arrived into what
             genuinely needs a reply, what's worth reading, and what's noise — then lets
-            you answer without leaving the app. Other morning apps summarise your
-            calendar. This one clears your plate.
+            you answer without leaving the app. You don't have to open your inbox to
+            know what's in it.
+          </p>
+        </div>
+      </section>
+
+      {/* carryover — the anti-guilt half of the pitch */}
+      <section className="max-w-3xl mx-auto px-5 sm:px-8 pb-16 -mt-8">
+        <div className="card">
+          <p className="text-xs font-medium text-faint uppercase tracking-wider mb-2">
+            Unfinished work
+          </p>
+          <h2 className="font-display text-2xl sm:text-3xl tracking-tight mb-3">
+            Yesterday doesn't follow you around.
+          </h2>
+          <p className="text-muted text-sm sm:text-base leading-relaxed">
+            What you didn't finish is collected and offered to today — move it, drop it,
+            or file it against something already scheduled. Nothing accumulates and
+            nothing turns red. A finished day shows what you actually did.
           </p>
         </div>
       </section>

@@ -18,58 +18,77 @@ either changes, this file is wrong until it's updated.
 
 **Subtitle** (30 max)
 
-    Your day, before it starts
+    Wake up to clarity
+
+The tagline, not a search play — it already appears on the landing page, in the
+header, and in the footer, and that consistency is worth more than the keyword
+room. Apple indexes the subtitle, so the 100-character keyword field carries the
+search load alone; nothing in the name or subtitle duplicates a keyword, so none
+of it is wasted.
 
 **Promotional text** (170 max — editable without a new build)
 
-    Your calendar, tasks, and inbox in one place, with a morning brief that
-    tells you what actually matters today.
+    One screen for your calendar, tasks, and inbox — with a morning brief that
+    says what matters today, and unfinished work carried forward rather than
+    held against you.
 
 **Keywords** (100 max, comma-separated, no spaces after commas)
 
-    daily planner,agenda,todo,calendar,gmail,inbox,reminders,productivity,brief,tasks,schedule
+    adhd,daily planner,agenda,todo,calendar,gmail,inbox,focus,reminders,brief,freelance,creative
+
+92 characters. `adhd` is deliberate and Chris approved it (2026-09-05): it is the
+highest-intent search term for the person this is built for. It holds up only
+because the copy describes the DAY and never the person — no treatment claim
+anywhere, in the listing or in any ad. Cross that line and the keyword becomes a
+liability.
 
 **Description** (4000 max)
 
     Day Ahead is a single screen that answers one question: what does today
     actually look like?
 
-    Your calendar, your tasks, and the email you still owe someone all live in
-    one place — not three apps you check in rotation.
+    It's built for days that move — the client email that reorders your
+    afternoon, the call that shifts, the work that didn't get finished. Your
+    calendar, your tasks, and the email you still owe someone live in one
+    place, not three apps you check in rotation.
 
     THE MORNING BRIEF
-    Every morning, Day Ahead reads your day and tells you what matters: what's
-    scheduled, what's still open, and which emails are waiting on a reply. It
-    arrives as a notification, so you get the shape of your day before you've
-    opened anything.
+    Before you've opened anything, Day Ahead tells you the shape of your day:
+    what's scheduled, what's still open, and who's waiting on a reply. It
+    arrives as a notification, so you start the day knowing rather than
+    guessing.
 
-    YOUR SCHEDULE, WITH CONTEXT
-    Calendar events sit alongside your tasks instead of in a separate app.
-    All-day events stay out of the way at the top. Anything you don't want to
-    see, you can hide without deleting.
+    IT READS YOUR EMAIL SO YOU DON'T HAVE TO
+    Connect every mailbox. Day Ahead sorts what came in into what genuinely
+    needs a reply, what's worth reading, and what's noise — then lets you answer
+    without leaving the app, with your own signature intact. You don't have to
+    open your inbox to know what's in it.
 
-    TASKS THAT CARRY FORWARD
-    Unfinished work doesn't quietly vanish at midnight. Day Ahead collects what
-    you didn't get to and lets you move it to today, drop it, or file it
-    against a task that's already scheduled — so a finished day shows what you
-    actually accomplished, not a list of everything you meant to do.
+    YESTERDAY DOESN'T FOLLOW YOU AROUND
+    Unfinished work doesn't sink to the bottom of a list. Day Ahead collects
+    what you didn't get to and offers it to today — move it, drop it, or file it
+    under something already scheduled. Nothing accumulates and nothing turns
+    red. A finished day shows what you actually accomplished.
 
-    INBOX TRIAGE
-    Day Ahead sorts your inbox into what needs a reply, what's just noise, and
-    what can wait. Reply without leaving the app, with your own signature
-    intact.
+    YOUR SCHEDULE, NOT A SECOND CALENDAR
+    Google Calendar events sit alongside your tasks. All-day events stay out of
+    the way. Anything you'd rather not see, you can hide without deleting.
+    Read-only — Day Ahead never writes to your calendar.
 
     ON YOUR HOME SCREEN
-    Two widgets: "Next up" for the one thing that's coming, and "Today" for
-    your whole day at a glance.
+    Two widgets: "Next up" for the one thing that's coming, and "Today" for your
+    day at a glance.
+
+    QUIET WHEN YOU NEED IT
+    Pause notifications for an hour, the rest of the day, or a week. Turn the AI
+    off entirely and keep everything else — calendar, tasks, and reminders work
+    exactly the same.
 
     PRIVACY
-    Day Ahead doesn't track you, doesn't sell your data, and carries no
-    advertising. Your Google account stays connected only as long as you want
-    it to, and you can export everything or delete your account outright from
-    inside the app — no email to support, no waiting.
+    No tracking, no advertising, nothing sold. Export everything or delete your
+    account from inside the app — no email to support, no waiting.
 
-    Day Ahead requires a Google account for calendar and email.
+    Day Ahead requires a Google account.
 
 **What's New** (for the first release)
 
