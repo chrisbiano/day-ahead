@@ -28,55 +28,27 @@ one covering all sensitive scopes, one for the restricted scope. These are the
 exact texts to paste. The per-scope sections further down are the working notes
 they were built from.
 
-### Box 1 — sensitive scopes
+Each box caps at **1000 characters**, so these are the trimmed versions that fit.
 
-> Day Ahead is a single-screen daily planner: it shows the user's calendar,
-> their tasks, and the email waiting on a reply in one place, and sends a
-> morning summary notification.
->
-> Google Calendar (calendar.readonly) — the app displays the user's events for
-> the day alongside their tasks and includes them in the morning summary. It
-> only reads: it never creates, edits, or deletes events, and writes nothing
-> back to Google Calendar. Events are fetched live on each load and are not
-> retained in our database; only the user's own notes about an event are stored.
-> Read-only is the minimum scope that returns event times and titles.
->
-> Other contacts (contacts.other.readonly) — when the user replies to an email
-> from inside the app, the recipient field offers autocomplete. This scope
-> returns addresses the user has corresponded with but never saved, which is
-> what makes autocomplete useful for the people they email most often. We
-> request this narrower scope deliberately rather than contacts.readonly, which
-> would expose full saved contact records the app has no use for. Results are
-> passed straight to the compose field and are never written to our database.
->
-> Sending mail (gmail.send) — the app lets the user reply to an email without
-> leaving it, using their own signature. This scope is used only to send a
-> message the user has composed and explicitly sent by tapping Send. The app
-> never sends mail automatically, on a schedule, or without a direct user
-> action. gmail.send grants no read access and is the narrowest scope that
-> permits sending.
+### Box 1 — sensitive scopes (964 chars)
 
-### Box 2 — restricted scope
+    Day Ahead shows a user's calendar, tasks and unanswered email on one screen, plus a morning summary notification.
 
-> Day Ahead sorts the user's inbox into what needs a reply, what is worth
-> reading, and what is noise, and lets them act on each item without leaving the
-> app. gmail.modify is the only restricted scope the app requests.
->
-> Reading requires message bodies, not only headers. The app must read the body
-> to judge whether a specific person is actually waiting on a response — subject
-> lines alone are unreliable, because marketing mail is deliberately written to
-> look personal. Sender, subject, and a short preview are retained so the sorted
-> inbox persists between sessions; full message bodies are never stored.
->
-> Acting requires label changes — marking a message read or unread, starring or
-> unstarring it, and moving it to Trash or back out again. Each happens only in
-> direct response to the user tapping a control. Nothing is ever permanently
-> deleted: Trash remains recoverable in Gmail, and the app offers an untrash
-> action of its own.
->
-> gmail.readonly is insufficient because it cannot mark a message read or move
-> it to Trash. gmail.metadata is insufficient because it does not return message
-> bodies, which the triage judgement depends on.
+    calendar.readonly — displays the day's events beside their tasks and in the summary. Read-only: the app never creates, edits or deletes events. Events are fetched live and not stored; only the user's own notes about an event are kept.
+
+    contacts.other.readonly — powers recipient autocomplete when replying in-app. It returns addresses the user has emailed but never saved, which is what autocomplete is actually for. Chosen deliberately over contacts.readonly, which would expose full saved contact records the app has no use for. Results go straight to the compose field and are never stored.
+
+    gmail.send — sends a reply the user has written and explicitly sent by tapping Send, with their own signature. Never automatic, never scheduled, never without a direct user action. It grants no read access and is the narrowest scope that permits sending.
+
+### Box 2 — restricted scope (902 chars)
+
+    Day Ahead sorts a user's inbox into what needs a reply, what is worth reading and what is noise, and lets them act on each item without leaving the app. gmail.modify is the only restricted scope requested.
+
+    Reading needs message bodies, not just headers: whether a real person is waiting on a response cannot be judged from a subject line, because marketing mail is written to look personal. Sender, subject and a short preview are stored so the sorted inbox persists between sessions; full message bodies are never stored.
+
+    Acting needs label changes — read/unread, star/unstar, and moving to Trash or back out again — each only when the user taps a control. Nothing is ever permanently deleted: Trash stays recoverable in Gmail and the app offers its own untrash.
+
+    gmail.readonly cannot mark a message read or move it to Trash. gmail.metadata returns no bodies, which the triage judgement depends on.
 
 The retention sentence in Box 2 is deliberate. Sender, subject and snippet ARE
 stored (`email_verdicts`); bodies are dropped before insert. Volunteering that
@@ -164,7 +136,89 @@ Checked in the code so a reviewer's cross-examination doesn't surprise us:
 - **Gmail writes are exactly:** star, unstar, read, unread, trash, untrash
   (`gmail-action`), plus send. No permanent deletion anywhere.
 
-## The demo video
+## The demo video — script
+
+Film it on the **demo Google account** (the one App Review also needs), not
+Chris's own: otherwise real client mail ends up in a video sent to Google.
+
+**The single most common reason these bounce is the OAuth client ID not being
+legible.** Record the DESKTOP WEB flow, not the phone — the client ID sits in the
+browser URL bar during the consent redirect, where on iOS it's buried in a system
+sheet. Hold on it for three full seconds:
+
+    1095943492774-4clk6nmt7s210ng1mq3ghcrmg6cmebf2.apps.googleusercontent.com
+
+**Scene 1 — signed out, dayahead.app in a desktop browser**
+
+> This is Day Ahead, a daily planning app. It brings a user's Google Calendar,
+> their tasks, and the email waiting on a reply onto one screen. I'll sign in and
+> show how each requested scope is used.
+
+**Scene 2 — the consent flow.** Click Continue with Google; let the URL bar rest.
+
+> Signing in with Google. You can see our OAuth client ID in the address bar here.
+
+Then the consent screen, scopes visible:
+
+> And this is the consent screen. Day Ahead requests four scopes: read-only
+> access to Google Calendar, other contacts, Gmail send, and Gmail modify. I'll
+> demonstrate each one.
+
+**Scene 3 — calendar.** The day view with real events.
+
+> First, calendar.readonly. These are the events from Google Calendar, shown
+> alongside the user's tasks for the day. This is read-only — Day Ahead never
+> creates, edits, or deletes an event, and never writes anything back to Google
+> Calendar. Events are fetched live each time and aren't stored.
+
+**Scene 4 — inbox triage.** Scroll the sorted mail.
+
+> Next, gmail.modify, which is the one restricted scope we request. Day Ahead
+> sorts the inbox into what genuinely needs a reply, what's worth reading, and
+> what's noise.
+>
+> This needs the message body, not just the header — you can't tell from a
+> subject line whether a real person is waiting on you, because marketing email
+> is written to look personal. We store the sender, subject, and a short preview
+> so the sorted list persists between sessions. Full message bodies are never
+> stored.
+
+**Scene 5 — acting on a message.** Star one, trash another.
+
+> gmail.modify also covers acting on mail. I'll star this one — that's a label
+> change. And I'll move this one to Trash.
+>
+> Every one of these happens only when the user taps a control. Nothing is ever
+> permanently deleted — Trash stays recoverable in Gmail, and the app has its own
+> untrash action.
+
+**Scene 6 — reply and send.** Type into the recipient field so autocomplete fires.
+
+> Here I'm replying. As I type the recipient, autocomplete offers addresses —
+> that's contacts.other.readonly. It returns people the user has emailed but
+> never saved to their contacts, which is exactly who autocomplete is for. We
+> chose that narrower scope over full contacts access. Those results go straight
+> into this field and are never stored.
+
+Type a short reply, hit Send:
+
+> And sending uses gmail.send. This only ever sends a message the user has
+> written and explicitly sent by tapping Send. Nothing is sent automatically, on
+> a schedule, or without a direct action.
+
+**Scene 7 — close.** Settings → Send a test notification, if it can be triggered.
+
+> Day Ahead also sends a morning summary notification built from that same
+> calendar and inbox data.
+>
+> That's all four scopes: calendar read-only for the schedule, other contacts for
+> reply autocomplete, Gmail send for replies the user writes, and Gmail modify
+> for sorting the inbox and acting on it. Thanks for reviewing.
+
+Leave the mistakes in. A clean one-take screen recording with a slightly rough
+voiceover reads as genuine; a polished edit costs an afternoon and earns nothing.
+
+## The demo video — requirements
 
 Required for restricted scopes, and the step people miss. Unlisted YouTube is
 fine. Reviewers check it against the justifications above, so it should show, in
