@@ -22,9 +22,27 @@ this app" interstitial and a **100-user cap**.
 
 ## Scopes and why each is needed
 
-Two are sensitive (calendar, contacts) and two are restricted (both Gmail
-scopes). The restricted pair is what triggers the third-party security
-assessment (CASA), annually.
+THREE are sensitive — calendar, contacts and `gmail.send` — and exactly ONE is
+restricted: `gmail.modify`. That single scope is what triggers the third-party
+security assessment (CASA), annually. It is also the smallest restricted surface
+possible while keeping inbox triage: `gmail.readonly` cannot mark a message read
+or trash it, and `gmail.metadata` returns no bodies.
+
+**Console corrected 2026-09-06**, after the registered scopes were checked
+against the code and did not match:
+- `calendar.readonly` was **missing** from the consent screen. The OAuth flow
+  grants whatever the code requests, so Calendar worked fine — but Google only
+  reviews what is *declared*. Undeclared, it would have passed through
+  verification unexamined and kept throwing the unverified warning at users
+  afterwards. Added.
+- `gmail.settings.basic` was still **registered but unused** — a leftover from
+  before signatures moved to paste-in. Restricted, and its consent wording is
+  "See, edit, create, or change your email settings and filters", i.e. filters
+  and forwarding: precisely the power the app gave up on purpose. It widened the
+  CASA surface and could not have been justified. Removed.
+
+The lesson worth keeping: the console and the code drift apart silently, and
+only the code is the truth. Re-check this table whenever scopes change.
 
 ### `calendar.readonly`
 
