@@ -96,7 +96,11 @@ export default function Landing() {
         </p>
         <div className="mt-9 flex flex-col items-center gap-3">
           <SignInButton />
-          <span className="text-faint text-xs">Free while it's in early access.</span>
+          {/* Honest about today (there is no paywall yet) while still setting the
+              anchor, and it gives joining the beta a value beyond "it's free". */}
+          <span className="text-faint text-xs">
+            Free during beta. Founding members keep $5.99/month for life.
+          </span>
         </div>
       </section>
 

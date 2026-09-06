@@ -214,5 +214,16 @@ notification, the carryover card, and both widgets on a home screen.
    testing it and screenshotting it; iPhone-only is a legitimate choice and
    less to defend at review.
 3. **Demo account** — needs creating and populating before submission.
-4. **Price** — free at launch, or paid from day one? This is also the question
-   of whether in-app purchase blocks the first release.
+4. ~~**Price**~~ — DECIDED 2026-09-05: **$9.99/month, $79.99/year, 7-day trial,
+   no free tier.** A free tier was considered and rejected: free users are the
+   heaviest support load per pound earned, and you can always add one later
+   whereas removing one is a public event. The AI switch stays a privacy
+   control, not a paywall.
+
+   **Founding rate: $5.99/month for life** for anyone who signed up during beta.
+   Identifying them needs no work now — `auth.users.created_at` already records
+   it; just fix the cutoff date when billing ships. Honouring it on iOS means a
+   second subscription product (or a recurring offer code) shown only to those
+   accounts, since Apple can't grandfather a price on the same product.
+
+   Break-even for reference: ~30 subscribers covers CASA, Supabase and hosting.
