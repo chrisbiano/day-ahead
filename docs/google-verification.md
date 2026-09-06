@@ -20,7 +20,69 @@ Being in production rather than Testing matters: refresh tokens do **not** expir
 after 7 days. The live costs of being unverified are the "Google hasn't verified
 this app" interstitial and a **100-user cap**.
 
-## Scopes and why each is needed
+
+## Paste-ready: what the console actually asks for
+
+The Data Access page has **two** boxes under "How will the scopes be used?" —
+one covering all sensitive scopes, one for the restricted scope. These are the
+exact texts to paste. The per-scope sections further down are the working notes
+they were built from.
+
+### Box 1 — sensitive scopes
+
+> Day Ahead is a single-screen daily planner: it shows the user's calendar,
+> their tasks, and the email waiting on a reply in one place, and sends a
+> morning summary notification.
+>
+> Google Calendar (calendar.readonly) — the app displays the user's events for
+> the day alongside their tasks and includes them in the morning summary. It
+> only reads: it never creates, edits, or deletes events, and writes nothing
+> back to Google Calendar. Events are fetched live on each load and are not
+> retained in our database; only the user's own notes about an event are stored.
+> Read-only is the minimum scope that returns event times and titles.
+>
+> Other contacts (contacts.other.readonly) — when the user replies to an email
+> from inside the app, the recipient field offers autocomplete. This scope
+> returns addresses the user has corresponded with but never saved, which is
+> what makes autocomplete useful for the people they email most often. We
+> request this narrower scope deliberately rather than contacts.readonly, which
+> would expose full saved contact records the app has no use for. Results are
+> passed straight to the compose field and are never written to our database.
+>
+> Sending mail (gmail.send) — the app lets the user reply to an email without
+> leaving it, using their own signature. This scope is used only to send a
+> message the user has composed and explicitly sent by tapping Send. The app
+> never sends mail automatically, on a schedule, or without a direct user
+> action. gmail.send grants no read access and is the narrowest scope that
+> permits sending.
+
+### Box 2 — restricted scope
+
+> Day Ahead sorts the user's inbox into what needs a reply, what is worth
+> reading, and what is noise, and lets them act on each item without leaving the
+> app. gmail.modify is the only restricted scope the app requests.
+>
+> Reading requires message bodies, not only headers. The app must read the body
+> to judge whether a specific person is actually waiting on a response — subject
+> lines alone are unreliable, because marketing mail is deliberately written to
+> look personal. Sender, subject, and a short preview are retained so the sorted
+> inbox persists between sessions; full message bodies are never stored.
+>
+> Acting requires label changes — marking a message read or unread, starring or
+> unstarring it, and moving it to Trash or back out again. Each happens only in
+> direct response to the user tapping a control. Nothing is ever permanently
+> deleted: Trash remains recoverable in Gmail, and the app offers an untrash
+> action of its own.
+>
+> gmail.readonly is insufficient because it cannot mark a message read or move
+> it to Trash. gmail.metadata is insufficient because it does not return message
+> bodies, which the triage judgement depends on.
+
+The retention sentence in Box 2 is deliberate. Sender, subject and snippet ARE
+stored (`email_verdicts`); bodies are dropped before insert. Volunteering that
+reads far better to an assessor than letting them find it.
+
+## Scopes and why each is needed — working notes
 
 THREE are sensitive — calendar, contacts and `gmail.send` — and exactly ONE is
 restricted: `gmail.modify`. That single scope is what triggers the third-party
