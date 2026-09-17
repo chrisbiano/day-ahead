@@ -44,8 +44,12 @@ export default function useMorningBrief({ enabled, briefTime }) {
     // new one loads (no blank flash).
     if (cache?.date === today) {
       setText(cache.text || null)
-      setDismissed(Boolean(cache.dismissed))
-      if (cache.dismissed) return
+      /* Dismissing is "not now", not "not today" — it clears the space but the
+         brief comes back on the next refresh or reopen. It used to persist, and
+         because the refresh control lives INSIDE the card, dismissing also
+         removed the only way to bring it back: one stray tap at 8am and the
+         day's brief was gone until tomorrow. */
+      setDismissed(false)
       const fresh = cache.text && cache.generatedAt && (Date.now() - cache.generatedAt <= STALE_MS)
       if (fresh) return
     } else {
@@ -90,7 +94,6 @@ export default function useMorningBrief({ enabled, briefTime }) {
       if (document.visibilityState !== 'visible') return
       const today = toISODate(new Date())
       const cache = readCache()
-      if (cache?.date === today && cache.dismissed) return
       const stale = cache?.date !== today || !cache?.generatedAt || (Date.now() - cache.generatedAt > STALE_MS)
       if (stale) { genStarted.current = false; setTick(t => t + 1) }
     }
@@ -107,12 +110,9 @@ export default function useMorningBrief({ enabled, briefTime }) {
     setTick(t => t + 1)
   }
 
-  const dismiss = () => {
-    const today = toISODate(new Date())
-    const cache = readCache() || {}
-    writeCache({ ...cache, date: today, text: text ?? cache.text ?? '', dismissed: true })
-    setDismissed(true)
-  }
+  // Session-only on purpose — see the note above. The cached TEXT is kept so a
+  // reopen shows it instantly rather than regenerating.
+  const dismiss = () => setDismissed(true)
 
   const show = Boolean(enabled) && !dismissed && (loading || Boolean(text))
   return { brief: text, loading, show, dismiss, refresh }

@@ -501,6 +501,10 @@ export default function App() {
      written for cross-device sync, so new mail only appeared after a full
      reload and the button looked broken to anyone waiting on a message. */
   const refreshEverything = async () => {
+    // The brief is regenerated too: it summarises everything the other four
+    // just re-fetched, so leaving it stale would have the top of the screen
+    // describing a day the rest of the screen has moved past.
+    refreshBrief()
     await Promise.all([
       refreshCalendar(),
       refreshTasks(),
