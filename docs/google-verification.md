@@ -136,6 +136,45 @@ Checked in the code so a reviewer's cross-examination doesn't surprise us:
 - **Gmail writes are exactly:** star, unstar, read, unread, trash, untrash
   (`gmail-action`), plus send. No permanent deletion anywhere.
 
+## Authorized redirect URIs — a live bug, fixed 2026-09-17
+
+The connect-a-mailbox flow builds its redirect from SUPABASE_URL, which became
+the custom domain in August. Google still only had the supabase.co one
+registered, so **connecting a new mailbox had been broken since the custom domain
+switch** and nobody noticed — Chris's five mailboxes were all connected 17–21
+July, before it. The first real customer would have hit it on their first action.
+
+All four must stay registered on client `1095943492774-4clk6…`:
+
+    https://muboxidryqmpnpmkdyfh.supabase.co/auth/v1/callback
+    https://muboxidryqmpnpmkdyfh.supabase.co/functions/v1/google-oauth-callback
+    https://auth.dayahead.app/auth/v1/callback
+    https://auth.dayahead.app/functions/v1/google-oauth-callback
+
+**Whenever SUPABASE_URL changes, this list must change with it.** The symptom is
+`Error 400: redirect_uri_mismatch`, and the error page names the exact redirect
+URI that was sent — compare it against this list rather than guessing. Google
+takes a few minutes to propagate; you can test acceptance without a browser by
+requesting the authorize endpoint with the client id and redirect_uri and seeing
+whether it serves sign-in or the mismatch error.
+
+## The demo account cannot connect Gmail until verification passes
+
+Confirmed 2026-09-17: `gmail.modify` is RESTRICTED, and Google will not issue
+tokens for a restricted scope to a NON-OWNER account while the app is unverified.
+The consent screen appears and can be accepted; the block lands at the token
+exchange, surfacing as `connect_error=token_exchange`. The "Advanced → unsafe"
+click-through does not apply to restricted scopes.
+
+Consequences:
+- **Film the demo video on Chris's own account** (he is the project owner, so his
+  grants work). Use lostsaintsmusic@gmail.com for the triage scenes — band mail,
+  no client material on screen. Google does not care whose account demonstrates
+  the scopes.
+- **Google verification must clear BEFORE submitting to Apple.** Apple's reviewer
+  signs in with the demo account; until verification passes that account cannot
+  connect Gmail, and the reviewer would see a half-working app.
+
 ## The demo video — script
 
 Film it on the **demo Google account** (the one App Review also needs), not
