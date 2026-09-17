@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { toISODate } from '../lib/tasks'
+import { reportError } from '../lib/errorLog'
 
 /* The daily brief as a dashboard card (not a fleeting push). First generated at
    or after the user's chosen send time by the `morning-brief` function and cached
@@ -67,7 +68,12 @@ export default function useMorningBrief({ enabled, briefTime }) {
         setText(data.brief)
         setDismissed(false)
       } catch (e) {
+        /* The console is not reachable on a phone, and this is the one thing a
+           user sees every morning — a brief that quietly never arrives reads as
+           "the app stopped working" with nothing to report. Route it to
+           client_errors so a failure is findable after the fact. */
         console.error('daily brief failed:', e)
+        reportError(e, 'morning-brief')
         genStarted.current = false   // let a later load retry
       } finally {
         setLoading(false)
