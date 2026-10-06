@@ -41,10 +41,28 @@ async function checkForUpdate() {
   sessionStorage.setItem('sentinel_update_to', server)
 
   reloading = true
-  window.location.reload()
+  /* NOT reload(). In a Safari/iOS web app, reload() can still be answered from
+     WebKit's page cache — which is how an install sits on a month-old build
+     while believing it updated. Navigating to a URL the cache has never seen
+     cannot be answered that way, so the build id goes in the query string. The
+     param is stripped below once the new build is running, so the address stays
+     clean and the next update gets a different URL again. */
+  window.location.replace(`${window.location.pathname}?b=${encodeURIComponent(server)}`)
+}
+
+/* Tidy the cache-buster away once it has done its job. Runs after the new build
+   has loaded, so the URL a user sees or bookmarks never carries it. */
+function stripCacheBuster() {
+  try {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('b')) return
+    url.searchParams.delete('b')
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+  } catch { /* non-fatal */ }
 }
 
 export function startUpdater() {
+  stripCacheBuster()
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkForUpdate()
   })
