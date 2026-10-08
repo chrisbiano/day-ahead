@@ -654,7 +654,25 @@ export default function App() {
 
   // Dated tasks belong to their day. A general task (no date) just lives under
   // Today's tasks until it's done.
-  const todayISO = toISODate(new Date())
+  /* State rather than a per-render value. An app left open overnight never
+     re-renders on its own, so this would sit on yesterday's date and every
+     day-dependent thing would keep working from it — most visibly the carryover
+     sweep, which then never notices there IS a new day to carry into. */
+  const [todayISO, setTodayISO] = useState(() => toISODate(new Date()))
+  useEffect(() => {
+    const check = () => setTodayISO(prev => {
+      const now = toISODate(new Date())
+      return prev === now ? prev : now      // only re-render on a real rollover
+    })
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    const id = setInterval(check, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+      clearInterval(id)
+    }
+  }, [])
   const isTodayView = selectedISO === todayISO
   const dayTasks = tasks.filter(t => t.date === selectedISO || (!t.date && isTodayView))
   const visibleTasks = settings.hideCompleted
@@ -683,10 +701,13 @@ export default function App() {
      invented a standalone task when nothing matched — which put the item beyond
      the reach of carryover entirely. Parking removes the deadline, so an item
      can sit unfiled without escaping. */
-  const swept = useRef(false)
+  /* Keyed to the DAY, not the mount. It used to be a plain boolean, so the sweep
+     ran once per app launch — leave the app open across midnight and yesterday's
+     unfinished work was never collected until you quit and reopened. */
+  const sweptFor = useRef(null)
   useEffect(() => {
-    if (swept.current || tasksLoading || eventNotesLoading) return
-    swept.current = true
+    if (sweptFor.current === todayISO || tasksLoading || eventNotesLoading) return
+    sweptFor.current = todayISO
     const due = carryOverItems({ tasks, eventNotes, todayISO })
     if (due.length === 0) return
     const byTask = new Map()
