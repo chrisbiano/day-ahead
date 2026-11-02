@@ -500,6 +500,35 @@ export default function App() {
      Email belongs here as much as the rest. It was left out when this was
      written for cross-device sync, so new mail only appeared after a full
      reload and the button looked broken to anyone waiting on a message. */
+  /* Coming back to the app should show the day as it is now.
+   *
+   * Tasks, the brief and the date already listen for a resume; the calendar and
+   * the inbox did not — they fetched once on mount and then only when the header
+   * refresh was pressed. An app left open therefore showed a stale schedule and a
+   * stale inbox until it was quit, which is the only thing that forced a fresh
+   * mount. That is the whole of "I have to close it for it to reload".
+   *
+   * Floored at five minutes so tabbing in and out does not refetch constantly —
+   * inbox triage is the expensive one, and nothing on screen changes fast enough
+   * to need more. */
+  const lastResume = useRef(Date.now())
+  useEffect(() => {
+    const RESUME_STALE_MS = 5 * 60 * 1000
+    const onResume = () => {
+      if (document.visibilityState === 'hidden') return
+      if (Date.now() - lastResume.current < RESUME_STALE_MS) return
+      lastResume.current = Date.now()
+      refreshCalendar()
+      refreshEmails()
+    }
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('focus', onResume)
+    return () => {
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('focus', onResume)
+    }
+  }, [refreshCalendar, refreshEmails])
+
   const refreshEverything = async () => {
     // The brief is regenerated too: it summarises everything the other four
     // just re-fetched, so leaving it stale would have the top of the screen
