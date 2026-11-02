@@ -8,6 +8,7 @@ import {
 } from '../lib/push'
 import { submitReport } from '../lib/errorLog'
 import { buildExportHtml } from '../lib/exportDoc'
+import { buildId, latestBuild, applyUpdate } from '../lib/updater'
 
 /* Turn Web Push on for this device, and prove it works with a test ping before
    any reminder depends on it. The iOS reality is baked in: on iPhone, push only
@@ -398,6 +399,61 @@ function AiControl({ enabled, onChange }) {
             )}
           </p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* What build is actually running, and a way to move it on.
+ *
+ * An installed web app can sit on a weeks-old bundle while appearing fine, and
+ * with nothing on screen to prove it, every report from that surface sends you
+ * hunting a bug that was fixed long ago. One line of text ends that.
+ */
+function VersionRow() {
+  const [latest, setLatest] = useState(null)
+  const [checking, setChecking] = useState(false)
+  const running = buildId()
+
+  const check = async () => {
+    setChecking(true)
+    try { setLatest(await latestBuild()) } finally { setChecking(false) }
+  }
+  useEffect(() => { check() }, [])
+
+  const stale = latest && latest !== running
+
+  return (
+    <div>
+      <h3 className="text-xs font-medium text-faint uppercase tracking-wider mb-3">Version</h3>
+      <div className="border border-line2 rounded-xl p-3.5">
+        <p className="text-sm text-fg font-medium">
+          {stale ? 'An update is ready' : 'Up to date'}
+        </p>
+        <p className="text-xs text-muted mt-1 font-mono break-all">
+          running {running}{latest ? ` · latest ${latest}` : ''}
+        </p>
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={() => applyUpdate(latest)}
+            disabled={!stale}
+            className="text-xs font-medium text-accent border border-line2 rounded-lg px-3 py-1.5 hover:bg-surface2 transition-colors disabled:opacity-40"
+          >
+            Reload now
+          </button>
+          <button
+            onClick={check}
+            disabled={checking}
+            className="text-xs font-medium text-muted hover:text-fg border border-line2 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40"
+          >
+            {checking ? 'Checking…' : 'Check again'}
+          </button>
+        </div>
+        {stale && (
+          <p className="text-xs text-muted mt-2">
+            Installed app windows can hold an old copy. This forces the new one without quitting.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -1174,6 +1230,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, morni
           {isSupabaseConfigured && (
             <AiControl enabled={aiEnabled} onChange={onAiEnabledChange} />
           )}
+
+          <VersionRow />
 
           {/* Connected mailboxes */}
           {isConnectConfigured && (

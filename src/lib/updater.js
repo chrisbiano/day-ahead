@@ -61,6 +61,21 @@ function stripCacheBuster() {
   } catch { /* non-fatal */ }
 }
 
+/* Exposed so Settings can SHOW the running build. Without this the only way to
+   tell a stale install from a real bug was to guess — which cost three wrong
+   diagnoses before anyone thought to make it visible. */
+export function buildId() { return String(BUILD_ID) }
+export function latestBuild() { return serverBuild() }
+
+/* The manual escape hatch. Same cache-busting navigation the automatic path
+   uses, but it ignores the session guard — if someone is standing in Settings
+   pressing "reload", they mean it. */
+export function applyUpdate(server) {
+  reloading = true
+  const b = encodeURIComponent(server || String(Date.now()))
+  window.location.replace(`${window.location.pathname}?b=${b}`)
+}
+
 export function startUpdater() {
   stripCacheBuster()
   document.addEventListener('visibilitychange', () => {
